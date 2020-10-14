@@ -25,13 +25,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-// #include <dlfcn.h>
+#include <psp2/kernel/clib.h>
 
 typedef bool(*ImxInit)();
 
 enum platform platform_check(char* name) {
-  bool std = strcmp(name, "default") == 0;
-  if (strcmp(name, "vita") == 0)
+  bool std = sceClibStrcmp(name, "default") == 0;
+  if (sceClibStrcmp(name, "vita") == 0)
     return VITA;
   return 0;
 }

@@ -1,27 +1,28 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_SYSTEM_NAME "Generic")
-set(CMAKE_C_COMPILER "arm-vita-eabi-gcc")
-set(CMAKE_CXX_COMPILER "arm-vita-eabi-g++")
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED ENV{DOLCESDK})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{DOLCESDK}/share/dolce.toolchain.cmake" CACHE PATH "toolchain file")
+  else()
+    message(FATAL_ERROR "Please define DOLCESDK to point to your SDK path!")
+  endif()
+endif()
 
 project(moonlight)
-set(TITLE_ID "XYZZ00002")
-set(TITLE "Moonlight")
-set(VERSION_MAJOR "0")
-set(VERSION_MINOR "8")
-set(VERSION_PATCH "0")
+include("${DOLCESDK}/share/dolce.cmake" REQUIRED)
 
-execute_process(COMMAND
-	python -c "print('%02d.%02d' % (${VERSION_MAJOR}, ${VERSION_MINOR}))"
-	OUTPUT_VARIABLE APP_VER
-)
-string(REPLACE "\n" "" APP_VER "${APP_VER}")
+dolce_gen_libs(SceIniFileProcessor_stubs
+  SceIniFileProcessor.yml
+  LIB SceIniFileProcessor_stub_weak)
 
-add_definitions(-DVERSION_MAJOR=${VERSION_MAJOR})
-add_definitions(-DVERSION_MINOR=${VERSION_MINOR})
-add_definitions(-DVERSION_PATCH=${VERSION_PATCH})
+set(VITA_APP_NAME "Moonlight")
+set(VITA_TITLEID  "GRVA00010")
+set(VITA_VERSION  "01.00")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -O3 -std=c99")
 
-set(CMAKE_C_FLAGS "-Wl,-q -O3 -g -std=c99 -Dntohs=__builtin_bswap16 -Dhtons=__builtin_bswap16 -Dntohl=__builtin_bswap32 -Dhtonl=__builtin_bswap32 -DENET_DEBUG=1")
+link_directories(
+    ${CMAKE_CURRENT_BINARY_DIR}
+	)
 
 include_directories(
 	include/
@@ -31,11 +32,10 @@ include_directories(
 	third_party/libuuid/src/
 	third_party/h264bitstream/
 	third_party/enet/include/
-	third_party/inih/
 	third_party/mdns/
 )
 
-add_executable(${PROJECT_NAME}.elf
+add_executable(${PROJECT_NAME}
 	src/config.c
 	src/input/mapping.c
 	src/connection.c
@@ -51,7 +51,6 @@ add_executable(${PROJECT_NAME}.elf
 	src/video/vita.c
 	src/input/vita.c
 	src/power/vita.c
-	src/graphics.c
 	src/font.c
 	src/gui/guilib.c
 	src/gui/ime.c
@@ -59,13 +58,14 @@ add_executable(${PROJECT_NAME}.elf
 	src/gui/ui_settings.c
 	src/gui/ui_connect.c
 	src/gui/ui_device.c
+	src/ini.c
 
 	libgamestream/client.c
 	libgamestream/http.c
 	libgamestream/mkcert.c
 	libgamestream/sps.c
 	libgamestream/xml.c
-
+	
 	third_party/libuuid/src/clear.c
 	third_party/libuuid/src/compare.c
 	third_party/libuuid/src/copy.c
@@ -109,62 +109,82 @@ add_executable(${PROJECT_NAME}.elf
 	third_party/enet/peer.c
 	third_party/enet/protocol.c
 	third_party/enet/unix.c
-
-	third_party/inih/ini.c
 )
 
-target_link_libraries(${PROJECT_NAME}.elf
-	-lcrypto
-	-lexpat
-	-lcurl
-	-lz
-	-lssl
-	-lcrypto
-	-lopus
+target_link_libraries(${PROJECT_NAME}
+	expat
+	curl
+	ssl
+	crypto
+	opus
+	z
 
-	-lSceDisplay_stub
-	-lSceCtrl_stub
-	-lSceTouch_stub
-	-lSceNet_stub
-	-lSceSysmodule_stub
-	-lSceNetCtl_stub
-	-lScePower_stub
-	-lSceVideodec_stub
-	-lSceCommonDialog_stub
-	-lSceAppMgr_stub
-	-lSceAudio_stub
-	-lSceIme_stub
+	SceDisplay_stub
+	SceDisplayUser_stub
+	SceCtrl_stub
+	SceTouch_stub
+	SceNet_stub
+	SceSysmodule_stub
+	SceNetCtl_stub
+	ScePower_stub
+	SceVideodecUser_stub
+	SceVideodecLowDelayUser_stub
+	SceVideodecAsyncUser_stub
+	SceCommonDialog_stub
+	SceSysmodule_stub
+	SceAppMgr_stub
+	SceAudio_stub
+	SceIme_stub
 
-	-lvita2d
-	-lSceGxm_stub
-	-lScePgf_stub
-	-lSceCommonDialog_stub
-	-lfreetype
-	-lpng
-	-ljpeg
-	-lz
-	-lm
-	-lc
+	vita2d_sys
+	SceGxm_stub
+	ScePgf_stub
+	ScePvf_stub
+	SceCommonDialog_stub
+	SceLibm_stub
+	SceDbg_stub
+	SceGxmInternalForVsh_stub
+	SceSharedFb_stub
+	SceKernelDmacMgr_stub
+	SceCodecengine_stub
+	SceIniFileProcessor_stub_weak
+	SceAppMgr_stub
+	SceIme_stub
+	SceSystemgesture_stub
+	taihen_stub
 )
 
-add_custom_target(${PROJECT_NAME}.velf ALL
-	COMMAND vita-elf-create ${PROJECT_NAME}.elf ${PROJECT_NAME}.velf
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin
+  COMMAND dolce-make-bootparam attribute 0x02 ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin
 )
 
-add_custom_target(param.sfo ALL
-	COMMAND vita-mksfoex -s TITLE_ID=${TITLE_ID} -s APP_VER=${APP_VER} "${TITLE}" param.sfo
+dolce_create_self(eboot.bin ${PROJECT_NAME} UNSAFE BOOT_PARAM ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin)
+
+add_executable(exit_module
+  module/source/main.c
 )
 
-add_custom_target(${PROJECT_NAME}.vpk ALL
-	COMMAND vita-make-fself -s -c ${PROJECT_NAME}.velf eboot.bin
-	COMMAND vita-pack-vpk -s param.sfo -b eboot.bin
-			--add ../sce_sys/icon0.png=sce_sys/icon0.png
-			--add ../sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png
-			--add ../sce_sys/livearea/contents/startup.png=sce_sys/livearea/contents/startup.png
-			--add ../sce_sys/livearea/contents/template.xml=sce_sys/livearea/contents/template.xml
-			--add ../assets/nerdfont.ttf=assets/nerdfont.ttf
-			${PROJECT_NAME}.vpk
+target_compile_options(exit_module PRIVATE -std=gnu99)
+
+target_link_libraries(exit_module
+  taihenForKernel_stub
+  taihenModuleUtils_stub
+  "-nostdlib"
 )
 
-add_dependencies(${PROJECT_NAME}.velf ${PROJECT_NAME}.elf)
-add_dependencies(${PROJECT_NAME}.vpk ${PROJECT_NAME}.velf param.sfo)
+dolce_create_self(exit_module.skprx exit_module CONFIG module/exit_module.yml UNSAFE)
+
+set(DOLCE_MKSFOEX_FLAGS "${DOLCE_MKSFOEX_FLAGS} -d ATTRIBUTE=561160 -d ATTRIBUTE2=1 -s CATEGORY=gdc")
+
+dolce_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} eboot.bin
+    VERSION ${VITA_VERSION}
+    NAME ${VITA_APP_NAME}
+	CONTENT_ID_LABEL "MOONLIGHTVITA000"
+	FILE sce_sys/icon0.png sce_sys/icon0.png
+	FILE sce_sys/livearea/contents/bg.png sce_sys/livearea/contents/bg.png
+	FILE sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
+	FILE sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
+	FILE assets/nerdfont.ttf assets/nerdfont.ttf
+	FILE ${CMAKE_CURRENT_BINARY_DIR}/exit_module.skprx module/kernel/exit_module.skprx
+    )

@@ -1,5 +1,5 @@
 #include <stdbool.h>
-#include <vita2d.h>
+#include <vita2d_sys.h>
 
 #include <psp2/touch.h>
 
@@ -23,7 +23,7 @@ typedef struct menu_geom {
   int x, y, width, height, el, total_y;
 } menu_geom;
 
-extern vita2d_font *font;
+extern vita2d_pvf *font;
 
 struct menu_geom make_geom_centered(int w, int h);
 

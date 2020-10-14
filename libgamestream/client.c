@@ -38,7 +38,8 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
-#include <psp2/io/stat.h>
+#include <psp2/kernel/clib.h>
+#include <psp2/kernel/iofilemgr.h>
 
 #define UNIQUE_FILE_NAME "uniqueid.dat"
 #define P12_FILE_NAME "client.p12"
@@ -58,10 +59,6 @@ static char cert_hex[4096];
 static EVP_PKEY *privateKey;
 
 const char* gs_error;
-
-#ifdef __vita__
-#include "../src/graphics.h"
-#endif
 
 static int mkdirtree(const char* directory) {
   char buffer[1024];
@@ -96,22 +93,22 @@ static int load_unique_id(const char* keyDirectory) {
   char uniqueFilePath[4096];
   sprintf(uniqueFilePath, "%s/%s", keyDirectory, UNIQUE_FILE_NAME);
 
-  FILE *fd = fopen(uniqueFilePath, "r");
-  if (fd == NULL) {
+  SceUID fd = sceIoOpen(uniqueFilePath, SCE_O_RDONLY, 0);
+  if (fd < 0) {
     unsigned char unique_data[UNIQUEID_BYTES];
     RAND_bytes(unique_data, UNIQUEID_BYTES);
     for (int i = 0; i < UNIQUEID_BYTES; i++) {
       sprintf(unique_id + (i * 2), "%02x", unique_data[i]);
     }
-    fd = fopen(uniqueFilePath, "w");
-    if (fd == NULL)
+    fd = sceIoOpen(uniqueFilePath, SCE_O_WRONLY | SCE_O_CREAT, 0777);
+    if (fd < 0)
       return GS_FAILED;
 
-    fwrite(unique_id, UNIQUEID_CHARS, 1, fd);
+	sceIoWrite(fd, unique_id, UNIQUEID_CHARS);
   } else {
-    fread(unique_id, UNIQUEID_CHARS, 1, fd);
+	sceIoRead(fd, unique_id, UNIQUEID_CHARS);
   }
-  fclose(fd);
+  sceIoClose(fd);
   unique_id[UNIQUEID_CHARS] = 0;
 
   return GS_OK;
@@ -126,10 +123,10 @@ static int load_cert(const char* keyDirectory) {
 
   FILE *fd = fopen(certificateFilePath, "r");
   if (fd == NULL) {
-    printf("Generating certificate...");
-    printf(" this is only done once and can take a long time on Vita, allow up to 5 minutes... ");
+    sceClibPrintf("Generating certificate...");
+    sceClibPrintf(" this is only done once and can take a long time on Vita, allow up to 5 minutes... ");
     CERT_KEY_PAIR cert = mkcert_generate();
-    printf("done\n");
+    sceClibPrintf("done\n");
 
     char p12FilePath[4096];
     sprintf(p12FilePath, "%s/%s", keyDirectory, P12_FILE_NAME);
@@ -188,7 +185,7 @@ static int load_server_status(PSERVER_DATA server) {
     char *currentGameText = NULL;
     char *stateText = NULL;
     char *serverCodecModeSupportText = NULL;
-
+	sceClibPrintf("step1\n");
     ret = GS_INVALID;
 
     uuid_generate_random(uuid);
@@ -206,6 +203,7 @@ static int load_server_status(PSERVER_DATA server) {
       ret = GS_OUT_OF_MEMORY;
       goto cleanup;
     }
+
     if (http_request(url, data) != GS_OK) {
       ret = GS_IO_ERROR;
       goto cleanup;
@@ -248,12 +246,12 @@ static int load_server_status(PSERVER_DATA server) {
     if (!strlen(currentGameText) || !strlen(pairedText) || !strlen(server->serverInfo.serverInfoAppVersion) || !strlen(stateText))
       goto cleanup;
 
-    server->paired = pairedText != NULL && strcmp(pairedText, "1") == 0;
+    server->paired = pairedText != NULL && sceClibStrcmp(pairedText, "1") == 0;
     server->currentGame = currentGameText == NULL ? 0 : atoi(currentGameText);
     server->supports4K = serverCodecModeSupportText != NULL;
     server->serverMajorVersion = atoi(server->serverInfo.serverInfoAppVersion);
 
-    if (strstr(stateText, "_SERVER_BUSY") == NULL) {
+    if (sceClibStrstr(stateText, "_SERVER_BUSY") == NULL) {
       // After GFE 2.8, current game remains set even after streaming
       // has ended. We emulate the old behavior by forcing it to zero
       // if streaming is not active.
@@ -309,13 +307,13 @@ static int sign_it(const char *msg, size_t mlen, unsigned char **sig, size_t *sl
 
   const EVP_MD *md = EVP_get_digestbyname("SHA256");
   if (md == NULL) {
-        printf("openssl error 0x%x\n", ERR_peek_last_error());
+        sceClibPrintf("openssl error 0x%x\n", ERR_peek_last_error());
 
     goto cleanup;
   }
 
   int rc = EVP_DigestInit_ex(ctx, md, NULL);
-  printf("rc = %d\n", rc);
+  sceClibPrintf("rc = %d\n", rc);
   if (rc != 1)
     goto cleanup;
 
@@ -430,7 +428,7 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   else if ((ret = xml_search(data->memory, data->size, "paired", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "1") != 0) {
+  if (sceClibStrcmp(result, "1") != 0) {
     gs_error = "Pairing failed";
     ret = GS_FAILED;
     goto cleanup;
@@ -452,13 +450,13 @@ int gs_pair(PSERVER_DATA server, char* pin) {
     sscanf(&result[count], "%2hhx", &plaincert[count / 2]);
   }
   plaincert[strlen(result)/2] = '\0';
-  printf("%d / %d\n", strlen(result)/2, strlen(plaincert));
+  sceClibPrintf("%d / %d\n", strlen(result)/2, strlen(plaincert));
 
   unsigned char salt_pin[20];
   unsigned char aes_key_hash[32];
   AES_KEY enc_key, dec_key;
-  memcpy(salt_pin, salt_data, 16);
-  memcpy(salt_pin+16, pin, 4);
+  sceClibMemcpy(salt_pin, salt_data, 16);
+  sceClibMemcpy(salt_pin+16, pin, 4);
 
   int hash_length = server->serverMajorVersion >= 7 ? 32 : 20;
   if (server->serverMajorVersion >= 7)
@@ -489,7 +487,7 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   else if ((ret = xml_search(data->memory, data->size, "paired", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "1") != 0) {
+  if (sceClibStrcmp(result, "1") != 0) {
     gs_error = "Pairing failed";
     ret = GS_FAILED;
     goto cleanup;
@@ -519,9 +517,9 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   char challenge_response_hash[32];
   char challenge_response_hash_enc[32];
   char challenge_response_hex[65];
-  memcpy(challenge_response, challenge_response_data + hash_length, 16);
-  memcpy(challenge_response + 16, cert->signature->data, 256);
-  memcpy(challenge_response + 16 + 256, client_secret_data, 16);
+  sceClibMemcpy(challenge_response, challenge_response_data + hash_length, 16);
+  sceClibMemcpy(challenge_response + 16, cert->signature->data, 256);
+  sceClibMemcpy(challenge_response + 16 + 256, client_secret_data, 16);
   if (server->serverMajorVersion >= 7)
     SHA256(challenge_response, 16 + 256 + 16, challenge_response_hash);
   else
@@ -545,7 +543,7 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   else if ((ret = xml_search(data->memory, data->size, "paired", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "1") != 0) {
+  if (sceClibStrcmp(result, "1") != 0) {
     gs_error = "Pairing failed";
     ret = GS_FAILED;
     goto cleanup;
@@ -579,8 +577,8 @@ int gs_pair(PSERVER_DATA server, char* pin) {
 
   char client_pairing_secret[16 + 256];
   char client_pairing_secret_hex[(16 + 256) * 2 + 1];
-  memcpy(client_pairing_secret, client_secret_data, 16);
-  memcpy(client_pairing_secret + 16, signature, 256);
+  sceClibMemcpy(client_pairing_secret, client_secret_data, 16);
+  sceClibMemcpy(client_pairing_secret + 16, signature, 256);
   bytes_to_hex(client_pairing_secret, client_pairing_secret_hex, 16 + 256);
 
   uuid_generate_random(uuid);
@@ -596,7 +594,7 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   else if ((ret = xml_search(data->memory, data->size, "paired", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "1") != 0) {
+  if (sceClibStrcmp(result, "1") != 0) {
     gs_error = "Pairing failed";
     ret = GS_FAILED;
     goto cleanup;
@@ -615,7 +613,7 @@ int gs_pair(PSERVER_DATA server, char* pin) {
   else if ((ret = xml_search(data->memory, data->size, "paired", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "1") != 0) {
+  if (sceClibStrcmp(result, "1") != 0) {
     gs_error = "Pairing failed";
     ret = GS_FAILED;
     goto cleanup;
@@ -680,7 +678,7 @@ int gs_start_app(PSERVER_DATA server, STREAM_CONFIGURATION *config, int appId, b
     return GS_NOT_SUPPORTED_4K;
 
   RAND_bytes(config->remoteInputAesKey, 16);
-  memset(config->remoteInputAesIv, 0, 16);
+  sceClibMemset(config->remoteInputAesIv, 0, 16);
 
   srand(time(NULL));
   char url[4096];
@@ -692,14 +690,14 @@ int gs_start_app(PSERVER_DATA server, STREAM_CONFIGURATION *config, int appId, b
   if (data == NULL)
     return GS_OUT_OF_MEMORY;
 
-  printf("gs_start_app\n");
+  sceClibPrintf("gs_start_app\n");
 
   uuid_generate_random(uuid);
   uuid_unparse(uuid, uuid_str);
   if (server->currentGame == 0) {
     int channelCounnt = config->audioConfiguration == AUDIO_CONFIGURATION_STEREO ? CHANNEL_COUNT_STEREO : CHANNEL_COUNT_51_SURROUND;
     int mask = config->audioConfiguration == AUDIO_CONFIGURATION_STEREO ? CHANNEL_MASK_STEREO : CHANNEL_MASK_51_SURROUND;
-    snprintf(url, sizeof(url), "https://%s:47984/launch?uniqueid=%s&uuid=%s&appid=%d&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%s&rikeyid=%d&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d", server->serverInfo.address, unique_id, uuid_str, appId, config->width, config->height, config->fps, sops, rikey_hex, rikeyid, localaudio, (mask << 16) + channelCounnt, gamepad_mask, gamepad_mask);
+    sceClibSnprintf(url, sizeof(url), "https://%s:47984/launch?uniqueid=%s&uuid=%s&appid=%d&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%s&rikeyid=%d&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d", server->serverInfo.address, unique_id, uuid_str, appId, config->width, config->height, config->fps, sops, rikey_hex, rikeyid, localaudio, (mask << 16) + channelCounnt, gamepad_mask, gamepad_mask);
   } else
     sprintf(url, "https://%s:47984/resume?uniqueid=%s&uuid=%s&rikey=%s&rikeyid=%d", server->serverInfo.address, unique_id, uuid_str, rikey_hex, rikeyid);
 
@@ -707,14 +705,14 @@ int gs_start_app(PSERVER_DATA server, STREAM_CONFIGURATION *config, int appId, b
     server->currentGame = appId;
   else
     goto cleanup;
-  printf("ret = 0x%x\n", ret);
+  sceClibPrintf("ret = 0x%x\n", ret);
 
   if ((ret = xml_status(data->memory, data->size) != GS_OK))
     goto cleanup;
   else if ((ret = xml_search(data->memory, data->size, "gamesession", &result)) != GS_OK)
     goto cleanup;
 
-  if (!strcmp(result, "0")) {
+  if (!sceClibStrcmp(result, "0")) {
     ret = GS_FAILED;
     goto cleanup;
   }
@@ -748,7 +746,7 @@ int gs_quit_app(PSERVER_DATA server) {
   else if ((ret = xml_search(data->memory, data->size, "cancel", &result)) != GS_OK)
     goto cleanup;
 
-  if (strcmp(result, "0") == 0) {
+  if (sceClibStrcmp(result, "0") == 0) {
     ret = GS_FAILED;
     goto cleanup;
   }
@@ -763,6 +761,7 @@ int gs_quit_app(PSERVER_DATA server) {
 
 int gs_init(PSERVER_DATA server, char *address, const char *keyDirectory, int log_level, bool unsupported) {
   mkdirtree(keyDirectory);
+
   if (load_unique_id(keyDirectory) != GS_OK)
     return GS_FAILED;
 

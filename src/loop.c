@@ -88,8 +88,8 @@ void loop_remove_fd(int fd) {
   }
 
   if (fdindex != numFds && numFds > 0) {
-    memcpy(&fds[fdindex], &fds[numFds], sizeof(struct pollfd));
-    memcpy(&fdHandlers[fdindex], &fdHandlers[numFds], sizeof(FdHandler));
+    sceClibMemcpy(&fds[fdindex], &fds[numFds], sizeof(struct pollfd));
+    sceClibMemcpy(&fdHandlers[fdindex], &fdHandlers[numFds], sizeof(FdHandler));
   }
   #endif
 }

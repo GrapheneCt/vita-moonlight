@@ -18,6 +18,8 @@
  */
 #include "config.h"
 
+#include <psp2/kernel/clib.h>
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <psp2/rtc.h>
@@ -34,14 +36,14 @@ void vita_debug_log(const char *s, ...) {
   SceDateTime time;
   sceRtcGetCurrentClock(&time, 0);
 
-  snprintf(buffer, 26, "%04d%02d%02d %02d:%02d:%02d.%06d ",
+  sceClibSnprintf(buffer, 26, "%04d%02d%02d %02d:%02d:%02d.%06d ",
            time.year, time.month, time.day,
            time.hour, time.minute, time.second,
            time.microsecond);
 
   va_list va;
   va_start(va, s);
-  int len = vsnprintf(&buffer[25], 998, s, va);
+  int len = sceClibVsnprintf(&buffer[25], 998, s, va);
   va_end(va);
 
   fprintf(config.log_file, buffer);

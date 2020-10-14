@@ -19,6 +19,8 @@
 
 #include "sps.h"
 
+#include <psp2/kernel/clib.h>
+
 #include "h264_stream.h"
 
 static h264_stream_t* h264_stream = NULL;
@@ -82,7 +84,7 @@ void gs_sps_fix(PLENTRY sps, int flags, uint8_t* out_buf, uint32_t* out_offset) 
   } else // Devices that didn't/couldn't get bitstream restrictions before GFE 2.5.11 will continue to not receive them now
     h264_stream->sps->vui.bitstream_restriction_flag = 0;
 
-  memcpy(out_buf+*out_offset, naluHeader, 4);
+  sceClibMemcpy(out_buf+*out_offset, naluHeader, 4);
   *out_offset += 4;
 
   *out_offset += write_nal_unit(h264_stream, out_buf+*out_offset, 128);

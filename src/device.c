@@ -3,17 +3,19 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <ini.h>
 
-#include <psp2/io/dirent.h>
+#include <psp2/kernel/clib.h>
+#include <psp2/kernel/iofilemgr.h>
 
 #include "device.h"
 #include "debug.h"
+#include "ini.h"
+#include "ini_file_processor_c.h"
 
-#define DATA_DIR "ux0:data/moonlight"
+#define DATA_DIR "savedata0:"
 #define DEVICE_FILE "device.ini"
 
-#define BOOL(v) strcmp((v), "true") == 0
+#define BOOL(v) sceClibStrcmp((v), "true") == 0
 #define write_bool(fd, key, value) fprintf(fd, "%s = %s\n", key, value ? "true" : "false");
 #define write_string(fd, key, value) fprintf(fd, "%s = %s\n", key, value)
 
@@ -22,7 +24,7 @@ device_infos_t known_devices = {0};
 device_info_t* find_device(const char *name) {
   // TODO: mutex
   for (int i = 0; i < known_devices.count; i++) {
-    if (!strcmp(name, known_devices.devices[i].name)) {
+    if (!sceClibStrcmp(name, known_devices.devices[i].name)) {
       return &known_devices.devices[i];
     }
   }
@@ -30,23 +32,7 @@ device_info_t* find_device(const char *name) {
 }
 
 static void device_file_path(char *out, const char *dir) {
-  snprintf(out, 512, DATA_DIR "/%s/" DEVICE_FILE, dir);
-}
-
-static int device_ini_handle(void *out, const char *section, const char *name,
-                             const char *value) {
-  device_info_t *info = out;
-
-  if (strcmp(name, "paired") == 0) {
-    info->paired = BOOL(value);
-  } else if (strcmp(name, "internal") == 0) {
-    strncpy(info->internal, value, 255);
-  } else if (strcmp(name, "external") == 0) {
-    strncpy(info->external, value, 255);
-  } else if (strcmp(name, "prefer_external") == 0) {
-    info->prefer_external = BOOL(value);
-  }
-  return 1;
+  sceClibSnprintf(out, 512, DATA_DIR "/%s/" DEVICE_FILE, dir);
 }
 
 device_info_t* append_device(device_info_t *info) {
@@ -79,10 +65,10 @@ device_info_t* append_device(device_info_t *info) {
   }
   device_info_t *p = &known_devices.devices[known_devices.count];
 
-  strncpy(p->name, info->name, 255);
+  sceClibStrncpy(p->name, info->name, 255);
   p->paired = info->paired;
-  strncpy(p->internal, info->internal, 255);
-  strncpy(p->external, info->external, 255);
+  sceClibStrncpy(p->internal, info->internal, 255);
+  sceClibStrncpy(p->external, info->external, 255);
   p->prefer_external = info->prefer_external;
   vita_debug_log("append_device: device %s is added to the list\n", p->name);
 
@@ -96,10 +82,10 @@ bool update_device(device_info_t *info) {
     return false;
   }
 
-  //strncpy(p->name, info->name, 255);
+  //sceClibStrncpy(p->name, info->name, 255);
   p->paired = info->paired;
-  strncpy(p->internal, info->internal, 255);
-  strncpy(p->external, info->external, 255);
+  sceClibStrncpy(p->internal, info->internal, 255);
+  sceClibStrncpy(p->external, info->external, 255);
   p->prefer_external = info->prefer_external;
   return true;
 }
@@ -117,15 +103,15 @@ void load_all_known_devices() {
     if (sceIoDread(dfd, &ent) <= 0) {
       break;
     }
-    if (strcmp(".", ent.d_name) == 0 || strcmp("..", ent.d_name) == 0) {
+    if (sceClibStrcmp(".", ent.d_name) == 0 || sceClibStrcmp("..", ent.d_name) == 0) {
       continue;
     }
-    if (!SCE_S_ISDIR(ent.d_stat.st_mode)) {
+    if (!SCE_STM_ISDIR(ent.d_stat.st_mode)) {
       continue;
     }
 
-    memset(&info, 0, sizeof(device_info_t));
-    strncpy(info.name, ent.d_name, 255);
+    sceClibMemset(&info, 0, sizeof(device_info_t));
+    sceClibStrncpy(info.name, ent.d_name, 255);
     if (!load_device_info(&info)) {
       continue;
     }
@@ -141,45 +127,80 @@ bool load_device_info(device_info_t *info) {
   device_file_path(path, info->name);
   vita_debug_log("load_device_info: reading %s\n", path);
 
-  int ret = ini_parse(path, device_ini_handle, info);
-  if (!ret) {
-    vita_debug_log("load_device_info: device found:\n", ret);
-    vita_debug_log("load_device_info:   info->name = %s\n", info->name);
-    vita_debug_log("load_device_info:   info->paired = %s\n", info->paired ? "true" : "false");
-    vita_debug_log("load_device_info:   info->internal = %s\n", info->internal);
-    vita_debug_log("load_device_info:   info->external = %s\n", info->external);
-    vita_debug_log("load_device_info:   info->prefer_external = %s\n", info->prefer_external ? "true" : "false");
-    return true;
-  } else {
-    vita_debug_log("load_device_info: ini_parse returned %d\n", ret);
-    return false;
+  char iniProcContext[8];
+  SceIniFileProcessorParam iniProcInitParam;
+  SceIniFileProcessorMemCallbacks iniAllocCb;
+  sceIniFileProcessorCreateContext(iniProcContext);
+
+  sceIniFileProcessorInitializeParam(&iniProcInitParam);
+  sceIniFileProcessorCreateInstance(iniProcContext, &iniProcInitParam);
+
+  int ret = sceIniFileProcessorOpenFile(iniProcContext, path, "r", 0);
+  if (ret < 0) {
+	  sceIniFileProcessorDestroyInstanceForError(iniProcContext);
+	  sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X", ret);
+	  return false;
   }
+
+  int int_value;
+  char* string_value;
+  if (!iniGetValueByKey(iniProcContext, "paired", INI_VALUE_BOOL, 0, &int_value))
+	info->paired = int_value;
+  iniGetStringByKey(iniProcContext, "internal", &string_value);
+	sceClibStrncpy(info->internal, string_value, 255);
+	free(string_value);
+  iniGetStringByKey(iniProcContext, "external", &string_value);
+	sceClibStrncpy(info->external, string_value, 255);
+	free(string_value);
+  if (!iniGetValueByKey(iniProcContext, "prefer_external", INI_VALUE_BOOL, 0, &int_value))
+	info->prefer_external = int_value;
+
+  vita_debug_log("load_device_info: device found:\n", ret);
+  vita_debug_log("load_device_info:   info->name = %s\n", info->name);
+  vita_debug_log("load_device_info:   info->paired = %s\n", info->paired ? "true" : "false");
+  vita_debug_log("load_device_info:   info->internal = %s\n", info->internal);
+  vita_debug_log("load_device_info:   info->external = %s\n", info->external);
+  vita_debug_log("load_device_info:   info->prefer_external = %s\n", info->prefer_external ? "true" : "false");
+
+  sceIniFileProcessorFinalize(iniProcContext);
+
+  return true;
 }
 
 void save_device_info(const device_info_t *info) {
+
   char path[512] = {0};
   device_file_path(path, info->name);
   vita_debug_log("save_device_info: device file path: %s\n", path);
 
-  FILE* fd = fopen(path, "w");
-  if (!fd) {
-    // FIXME
-    vita_debug_log("save_device_info: cannot open device file\n");
-    return;
+  char iniProcContext[8];
+  SceIniFileProcessorParam iniProcInitParam;
+  SceIniFileProcessorMemCallbacks iniAllocCb;
+  sceIniFileProcessorCreateContext(iniProcContext);
+
+  sceIniFileProcessorInitializeParam(&iniProcInitParam);
+  sceIniFileProcessorCreateInstance(iniProcContext, &iniProcInitParam);
+
+  int ret = sceIniFileProcessorCreateFile(iniProcContext, path, "rw", 0);
+  if (ret < 0) {
+	  sceIniFileProcessorDestroyInstanceForError(iniProcContext);
+	  sceClibPrintf("sceIniFileProcessorCreateFile() returned 0x%X", ret);
+	  return;
   }
 
   vita_debug_log("save_device_info: paired = %s\n", info->paired ? "true" : "false");
-  write_bool(fd, "paired", info->paired);
+  iniCreateSetKey(iniProcContext, "paired", INI_VALUE_BOOL, info->paired);
 
   vita_debug_log("save_device_info: internal = %s\n", info->internal);
-  write_string(fd, "internal", info->internal);
+  sceIniFileProcessorAddKey(iniProcContext, "internal", info->internal);
 
   vita_debug_log("save_device_info: external = %s\n", info->external);
-  write_string(fd, "external", info->external);
+  sceIniFileProcessorAddKey(iniProcContext, "external", info->external);
 
   vita_debug_log("save_device_info: prefer_external = %s\n", info->prefer_external ? "true" : "false");
-  write_bool(fd, "prefer_external", info->prefer_external);
+  iniCreateSetKey(iniProcContext, "prefer_external", INI_VALUE_BOOL, info->prefer_external);
 
-  fclose(fd);
+  sceIniFileProcessorFinalize(iniProcContext);
+
   vita_debug_log("save_device_info: file closed\n");
 }

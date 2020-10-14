@@ -10,6 +10,7 @@
 #include "../config.h"
 #include "../device.h"
 #include "../connection.h"
+#include "../configuration.h"
 #include "../video/vita.h"
 #include "../input/vita.h"
 #include "../power/vita.h"
@@ -22,6 +23,7 @@
 #include <sys/types.h>
 #include <ctype.h>
 
+#include <psp2/kernel/clib.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/ctrl.h>
 
@@ -61,7 +63,7 @@ int ui_main_menu_loop(int cursor, void *context, const input_data *input) {
       if (connection_get_status() != LI_DISCONNECTED) {
         connection_terminate();
       }
-      exit(0);
+	  vitapower_termninate();
       return 0;
   }
 }
@@ -92,7 +94,7 @@ int ui_main_menu() {
   } while(0)
 
   char program_info[256];
-  snprintf(program_info, 256, "Moonlight v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
+  sceClibSnprintf(program_info, 256, "Moonlight v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
   MENU_TITLE(program_info);
 
   char name[256] = {0};

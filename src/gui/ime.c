@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../platform.h"
+
 #include <psp2/appmgr.h>
 #include <psp2/apputil.h>
 #include <psp2/types.h>
@@ -10,16 +12,14 @@
 #include <psp2/display.h>
 #include <psp2/apputil.h>
 
-#include <vita2d.h>
-
-#define SCE_IME_DIALOG_MAX_TITLE_LENGTH	(128)
-#define SCE_IME_DIALOG_MAX_TEXT_LENGTH	(512)
+#include <vita2d_sys.h>
 
 #define IME_DIALOG_RESULT_NONE 0
 #define IME_DIALOG_RESULT_RUNNING 1
 #define IME_DIALOG_RESULT_FINISHED 2
 #define IME_DIALOG_RESULT_CANCELED 3
 
+extern SceUID state_evf;
 
 static uint16_t ime_title_utf16[SCE_IME_DIALOG_MAX_TITLE_LENGTH];
 static uint16_t ime_initial_text_utf16[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
@@ -68,7 +68,7 @@ void utf8_to_utf16(const uint8_t *src, uint16_t *dst) {
   *dst = '\0';
 }
 
-void initImeDialog(SceImeType type, const char *title, char *initial_text, int max_text_length) {
+void initImeDialog(int type, const char *title, char *initial_text, int max_text_length) {
   // Convert UTF8 to UTF16
   utf8_to_utf16((const uint8_t *)title, ime_title_utf16);
   utf8_to_utf16((const uint8_t *)initial_text, ime_initial_text_utf16);
@@ -76,7 +76,7 @@ void initImeDialog(SceImeType type, const char *title, char *initial_text, int m
   SceImeDialogParam param;
   sceImeDialogParamInit(&param);
 
-  param.sdkVersion = 0x03150021;
+  param.sdkVersion = SCE_PSP2_SDK_VERSION;
   param.supportedLanguages = 0x0001FFFF;
   param.languagesForced = SCE_TRUE;
   param.type = type;
@@ -85,7 +85,6 @@ void initImeDialog(SceImeType type, const char *title, char *initial_text, int m
   param.initialText = ime_initial_text_utf16;
   param.inputTextBuffer = ime_input_text_utf16;
 
-  //int res =
   sceImeDialogInit(&param);
   return ;
 }
@@ -97,9 +96,7 @@ void oslOskGetText(char *text){
 }
 
 
-int ime_dialog_type(SceImeType type, char *text, const char *title, const char *def) {
-  sceCommonDialogSetConfigParam(&(SceCommonDialogConfigParam){});
-
+int ime_dialog_type(int type, char *text, const char *title, const char *def) {
   char userText[512];
   if (def) {
     strcpy(userText, def);
@@ -109,13 +106,16 @@ int ime_dialog_type(SceImeType type, char *text, const char *title, const char *
   initImeDialog(type, title, userText, 128);
 
   while (1) {
+
+	sceKernelWaitEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG, SCE_KERNEL_EVF_WAITMODE_AND, NULL, NULL);
+
     vita2d_start_drawing();
     vita2d_clear_screen();
 
     SceCommonDialogStatus status = sceImeDialogGetStatus();
     if (status == IME_DIALOG_RESULT_FINISHED) {
       SceImeDialogResult result;
-      memset(&result, 0, sizeof(SceImeDialogResult));
+      sceClibMemset(&result, 0, sizeof(SceImeDialogResult));
       sceImeDialogGetResult(&result);
 
       if (result.button == SCE_IME_DIALOG_BUTTON_CLOSE) {
@@ -132,8 +132,8 @@ int ime_dialog_type(SceImeType type, char *text, const char *title, const char *
 
     vita2d_end_drawing();
     vita2d_common_dialog_update();
-    vita2d_swap_buffers();
-    sceDisplayWaitVblankStart();
+	vita2d_wait_rendering_done();
+	vita2d_end_shfb();
   }
 
   sceImeDialogTerm();

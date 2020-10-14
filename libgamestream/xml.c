@@ -23,6 +23,8 @@
 #include <expat.h>
 #include <string.h>
 
+#include <psp2/kernel/clib.h>
+
 #define STATUS_OK 200
 
 static XML_Parser parser;
@@ -36,19 +38,19 @@ struct xml_query {
 
 static void XMLCALL _xml_start_element(void *userData, const char *name, const char **atts) {
   struct xml_query *search = (struct xml_query*) userData;
-  if (strcmp(search->data, name) == 0)
+  if (sceClibStrcmp(search->data, name) == 0)
     search->start++;
 }
 
 static void XMLCALL _xml_end_element(void *userData, const char *name) {
   struct xml_query *search = (struct xml_query*) userData;
-  if (strcmp(search->data, name) == 0)
+  if (sceClibStrcmp(search->data, name) == 0)
     search->start--;
 }
 
 static void XMLCALL _xml_start_applist_element(void *userData, const char *name, const char **atts) {
   struct xml_query *search = (struct xml_query*) userData;
-  if (strcmp("App", name) == 0) {
+  if (sceClibStrcmp("App", name) == 0) {
     PAPP_LIST app = malloc(sizeof(APP_LIST));
     if (app == NULL)
       return;
@@ -57,7 +59,7 @@ static void XMLCALL _xml_start_applist_element(void *userData, const char *name,
     app->name = NULL;
     app->next = (PAPP_LIST) search->data;
     search->data = app;
-  } else if (strcmp("ID", name) == 0 || strcmp("AppTitle", name) == 0) {
+  } else if (sceClibStrcmp("ID", name) == 0 || sceClibStrcmp("AppTitle", name) == 0) {
     search->memory = malloc(1);
     search->size = 0;
     search->start = 1;
@@ -71,10 +73,10 @@ static void XMLCALL _xml_end_applist_element(void *userData, const char *name) {
     if (list == NULL)
       return;
 
-    if (strcmp("ID", name) == 0) {
+    if (sceClibStrcmp("ID", name) == 0) {
         list->id = atoi(search->memory);
         free(search->memory);
-    } else if (strcmp("AppTitle", name) == 0) {
+    } else if (sceClibStrcmp("AppTitle", name) == 0) {
         list->name = search->memory;
     }
     search->start = 0;
@@ -83,13 +85,13 @@ static void XMLCALL _xml_end_applist_element(void *userData, const char *name) {
 
 static void XMLCALL _xml_start_mode_element(void *userData, const char *name, const char **atts) {
   struct xml_query *search = (struct xml_query*) userData;
-  if (strcmp("DisplayMode", name) == 0) {
+  if (sceClibStrcmp("DisplayMode", name) == 0) {
     PDISPLAY_MODE mode = calloc(1, sizeof(DISPLAY_MODE));
     if (mode != NULL) {
       mode->next = (PDISPLAY_MODE) search->data;
       search->data = mode;
     }
-  } else if (search->data != NULL && (strcmp("Height", name) == 0 || strcmp("Width", name) == 0 || strcmp("RefreshRate", name) == 0)) {
+  } else if (search->data != NULL && (sceClibStrcmp("Height", name) == 0 || sceClibStrcmp("Width", name) == 0 || sceClibStrcmp("RefreshRate", name) == 0)) {
     search->memory = malloc(1);
     search->size = 0;
     search->start = 1;
@@ -100,11 +102,11 @@ static void XMLCALL _xml_end_mode_element(void *userData, const char *name) {
   struct xml_query *search = (struct xml_query*) userData;
   if (search->data != NULL && search->start) {
     PDISPLAY_MODE mode = (PDISPLAY_MODE) search->data;
-    if (strcmp("Width", name) == 0)
+    if (sceClibStrcmp("Width", name) == 0)
       mode->width = atoi(search->memory);
-    else if (strcmp("Height", name) == 0)
+    else if (sceClibStrcmp("Height", name) == 0)
       mode->height = atoi(search->memory);
-    else if (strcmp("RefreshRate", name) == 0)
+    else if (sceClibStrcmp("RefreshRate", name) == 0)
       mode->refresh = atoi(search->memory);
 
     free(search->memory);
@@ -113,12 +115,12 @@ static void XMLCALL _xml_end_mode_element(void *userData, const char *name) {
 }
 
 static void XMLCALL _xml_start_status_element(void *userData, const char *name, const char **atts) {
-  if (strcmp("root", name) == 0) {
+  if (sceClibStrcmp("root", name) == 0) {
     int* status = (int*) userData;
     for (int i = 0; atts[i]; i += 2) {
-      if (strcmp("status_code", atts[i]) == 0)
+      if (sceClibStrcmp("status_code", atts[i]) == 0)
         *status = atoi(atts[i + 1]);
-      else if (*status != STATUS_OK && strcmp("status_message", atts[i]) == 0)
+      else if (*status != STATUS_OK && sceClibStrcmp("status_message", atts[i]) == 0)
         gs_error = strdup(atts[i + 1]);
     }
   }
@@ -133,7 +135,7 @@ static void XMLCALL _xml_write_data(void *userData, const XML_Char *s, int len) 
     if(search->memory == NULL)
       return;
 
-    memcpy(&(search->memory[search->size]), s, len);
+    sceClibMemcpy(&(search->memory[search->size]), s, len);
     search->size += len;
     search->memory[search->size] = 0;
   }

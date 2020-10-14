@@ -60,9 +60,11 @@ typedef struct _CONFIGURATION {
   struct touchscreen_deadzone back_deadzone;
   struct special_keys special_keys;
   bool disable_powersave;
+  bool disable_dimming;
   bool jp_layout;
   bool show_fps;
   bool enable_frame_pacer;
+  bool enable_bgm_mode;
   bool center_region_only;
   bool save_debug_log;
   struct input_config inputs[MAX_INPUTS];

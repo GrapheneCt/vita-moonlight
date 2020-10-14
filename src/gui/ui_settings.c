@@ -15,16 +15,23 @@
 #include <sys/types.h>
 #include <ctype.h>
 
+#include <psp2/kernel/clib.h>
+
 #include <psp2/ctrl.h>
 #include <psp2/rtc.h>
 #include <psp2/touch.h>
-#include <vita2d.h>
+#include <vita2d_sys.h>
 #include <Limelight.h>
+
+extern int SCREEN_WIDTH;
+extern int SCREEN_HEIGHT;
+extern int LINE_SIZE;
 
 static unsigned int settings_special_codes[] = {0,
   // special
   INPUT_TYPE_DEF_NAME | INPUT_TYPE_SPECIAL,
   INPUT_SPECIAL_KEY_PAUSE | INPUT_TYPE_SPECIAL,
+  INPUT_SPECIAL_KEY_KEYBOARD | INPUT_TYPE_SPECIAL,
   // gamepad
   INPUT_TYPE_DEF_NAME | INPUT_TYPE_GAMEPAD,
   SPECIAL_FLAG | INPUT_TYPE_GAMEPAD,
@@ -51,6 +58,7 @@ static char *settings_special_names[] = {"None",
   // special
   "Special inputs",
   "Pause stream",
+  "Open keyboard",
   // gamepad
   "Gamepad buttons",
   "Special (XBox button)",
@@ -77,19 +85,19 @@ static bool settings_loop_setup = 1;
 
 #define lerp(value, from_max, to_max) ((((value*10) * (to_max*10))/(from_max*10))/10)
 static void deadzone_draw() {
-  int vertical = (WIDTH - config.back_deadzone.left - config.back_deadzone.right) / 2 + config.back_deadzone.left,
-      horizontal = (HEIGHT - config.back_deadzone.top - config.back_deadzone.bottom) / 2 + config.back_deadzone.top;
+  int vertical = (SCREEN_WIDTH - config.back_deadzone.left - config.back_deadzone.right) / 2 + config.back_deadzone.left,
+      horizontal = (SCREEN_HEIGHT - config.back_deadzone.top - config.back_deadzone.bottom) / 2 + config.back_deadzone.top;
 
   vita2d_draw_rectangle(
       config.back_deadzone.left,
       config.back_deadzone.top,
-      WIDTH - config.back_deadzone.right - config.back_deadzone.left,
-      HEIGHT - config.back_deadzone.bottom - config.back_deadzone.top,
+	  SCREEN_WIDTH - config.back_deadzone.right - config.back_deadzone.left,
+	  SCREEN_HEIGHT - config.back_deadzone.bottom - config.back_deadzone.top,
       0x3000ff00
       );
 
-  vita2d_draw_line(vertical, config.back_deadzone.top, vertical, HEIGHT - config.back_deadzone.bottom, 0xffffffff);
-  vita2d_draw_line(config.back_deadzone.left, horizontal, WIDTH - config.back_deadzone.right, horizontal, 0xffffffff);
+  vita2d_draw_line(vertical, config.back_deadzone.top, vertical, SCREEN_HEIGHT - config.back_deadzone.bottom, 0xffffffff);
+  vita2d_draw_line(config.back_deadzone.left, horizontal, SCREEN_WIDTH - config.back_deadzone.right, horizontal, 0xffffffff);
 
   SceTouchData touch_data;
   sceTouchPeek(SCE_TOUCH_PORT_BACK, &touch_data, 1);
@@ -163,7 +171,7 @@ static int special_keys_ord(char *text) {
   bool did_find = false;
   int i = 0;
   for (; i < sizeof(settings_special_codes) / sizeof(int); i++) {
-    if (strcmp(settings_special_names[i], text) == 0) {
+    if (sceClibStrcmp(settings_special_names[i], text) == 0) {
       did_find = true;
       break;
     }
@@ -228,7 +236,7 @@ static int select_special_key_loop(int id, void *context, const input_data *inpu
         *code = key_code;
         return 1;
       } else {
-        display_error("Incorrect key code entered: %s", key_code_value);
+				display_error("Incorrect key code entered: %s", key_code_value);
       }
   }
 
@@ -323,14 +331,14 @@ static void special_keys_draw() {
       case TOUCHSEC_SPECIAL_SW:
         vita2d_draw_rectangle(
             special_offset,
-            HEIGHT - special_size - special_offset,
+			SCREEN_HEIGHT - special_size - special_offset,
             special_size,
             special_size,
             color);
       case TOUCHSEC_SPECIAL_SE:
         vita2d_draw_rectangle(
-            WIDTH - special_size - special_offset,
-            HEIGHT - special_size - special_offset,
+			SCREEN_WIDTH - special_size - special_offset,
+			SCREEN_HEIGHT - special_size - special_offset,
             special_size,
             special_size,
             color);
@@ -343,7 +351,7 @@ static void special_keys_draw() {
             color);
       case TOUCHSEC_SPECIAL_NE:
         vita2d_draw_rectangle(
-            WIDTH - special_size - special_offset,
+			SCREEN_WIDTH - special_size - special_offset,
             special_offset,
             special_size,
             special_size,
@@ -381,10 +389,12 @@ enum {
   SETTINGS_ENABLE_STREAM_OPTIMIZE,
   SETTINGS_SAVE_DEBUG_LOG,
   SETTINGS_DISABLE_POWERSAVE,
+  SETTINGS_DISABLE_DIMMING,
   SETTINGS_JP_LAYOUT,
   SETTINGS_SHOW_FPS,
   SETTINGS_LOCAL_AUDIO,
   SETTINGS_ENABLE_FRAME_PACER,
+  SETTINGS_ENABLE_BGM_MODE,
   SETTINGS_CENTER_REGION_ONLY,
   SETTINGS_ENABLE_MAPPING,
   SETTINGS_BACK_DEADZONE,
@@ -401,10 +411,12 @@ enum {
   SETTINGS_VIEW_ENABLE_STREAM_OPTIMIZE,
   SETTINGS_VIEW_SAVE_DEBUG_LOG,
   SETTINGS_VIEW_DISABLE_POWERSAVE,
+  SETTINGS_VIEW_DISABLE_DIMMING,
   SETTINGS_VIEW_JP_LAYOUT,
   SETTINGS_VIEW_SHOW_FPS,
   SETTINGS_VIEW_LOCAL_AUDIO,
   SETTINGS_VIEW_ENABLE_FRAME_PACER,
+  SETTINGS_VIEW_ENABLE_BGM_MODE,
   SETTINGS_VIEW_CENTER_REGION_ONLY,
   SETTINGS_VIEW_ENABLE_MAPPING,
   SETTINGS_VIEW_BACK_DEADZONE,
@@ -420,7 +432,7 @@ static int SETTINGS_VIEW_IDX[10];
 static int move_idx_in_array(char *array[], int count, char *find, int index_dist) {
   int i = 0;
   for (; i < count; i++) {
-    if (strcmp(find, array[i]) == 0) {
+    if (sceClibStrcmp(find, array[i]) == 0) {
       i += index_dist;
       break;
     }
@@ -491,7 +503,7 @@ static int settings_loop(int id, void *context, const input_data *input) {
           config.stream.bitrate = bitrate;
           did_change = 1;
         } else {
-          display_error("Incorrect bitrate entered: %s", value);
+					display_error("Incorrect bitrate entered: %s", value);
         }
       }
       break;
@@ -530,6 +542,13 @@ static int settings_loop(int id, void *context, const input_data *input) {
       did_change = 1;
       config.disable_powersave = !config.disable_powersave;
       break;
+	case SETTINGS_DISABLE_DIMMING:
+		if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
+			break;
+		}
+		did_change = 1;
+		config.disable_dimming = !config.disable_dimming;
+		break;
     case SETTINGS_JP_LAYOUT:
       if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
         break;
@@ -558,6 +577,13 @@ static int settings_loop(int id, void *context, const input_data *input) {
       did_change = 1;
       config.enable_frame_pacer = !config.enable_frame_pacer;
       break;
+	case SETTINGS_ENABLE_BGM_MODE:
+		if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
+			break;
+		}
+		did_change = 1;
+		config.enable_bgm_mode = !config.enable_bgm_mode;
+		break;
     case SETTINGS_CENTER_REGION_ONLY:
       if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
         break;
@@ -642,6 +668,9 @@ static int settings_loop(int id, void *context, const input_data *input) {
   sprintf(current, "%s", config.disable_powersave ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_DISABLE_POWERSAVE, current);
 
+  sprintf(current, "%s", config.disable_dimming ? "yes" : "no");
+  MENU_REPLACE(SETTINGS_VIEW_DISABLE_DIMMING, current);
+
   sprintf(current, "%s", config.jp_layout ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_JP_LAYOUT, current);
 
@@ -653,6 +682,9 @@ static int settings_loop(int id, void *context, const input_data *input) {
 
   sprintf(current, "%s", config.enable_frame_pacer ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_ENABLE_FRAME_PACER, current);
+
+  sprintf(current, "%s", config.enable_bgm_mode ? "yes" : "no");
+  MENU_REPLACE(SETTINGS_VIEW_ENABLE_BGM_MODE, current);
 
   sprintf(current, "%s", config.center_region_only ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_CENTER_REGION_ONLY, current);
@@ -676,6 +708,7 @@ static int settings_loop(int id, void *context, const input_data *input) {
 }
 
 static int settings_back(void *context) {
+  flash_message("Saving, please wait...");
   ui_settings_save_config();
   update_layout();
   return 0;
@@ -713,14 +746,16 @@ int ui_settings_menu() {
 
   MENU_CATEGORY("System");
   MENU_ENTRY(SETTINGS_SAVE_DEBUG_LOG, SETTINGS_VIEW_SAVE_DEBUG_LOG, "Enable debug log", "");
-  MENU_ENTRY(SETTINGS_DISABLE_POWERSAVE, SETTINGS_VIEW_DISABLE_POWERSAVE, "Disable power save", "");
+  MENU_ENTRY(SETTINGS_ENABLE_BGM_MODE, SETTINGS_VIEW_ENABLE_BGM_MODE, "Enable BGM mode", "");
+  MENU_ENTRY(SETTINGS_DISABLE_POWERSAVE, SETTINGS_VIEW_DISABLE_POWERSAVE, "Disable system suspend", "");
+  MENU_ENTRY(SETTINGS_DISABLE_DIMMING, SETTINGS_VIEW_DISABLE_DIMMING, "Disable screen dimming", "");
   MENU_ENTRY(SETTINGS_JP_LAYOUT, SETTINGS_VIEW_JP_LAYOUT, "Swap X & O for Moonlight", "");
   MENU_ENTRY(SETTINGS_SHOW_FPS, SETTINGS_VIEW_SHOW_FPS, "Display streaming FPS", "");
 
   MENU_CATEGORY("Input");
   MENU_ENTRY(SETTINGS_MOUSE_ACCEL, SETTINGS_VIEW_MOUSE_ACCEL, "Mouse acceleration", ICON_LEFT_RIGHT_ARROWS);
   MENU_ENTRY(SETTINGS_ENABLE_MAPPING, SETTINGS_VIEW_ENABLE_MAPPING, "Enable mapping file", "");
-  MENU_MESSAGE("Located at ux0:data/moonlight/mappings/vita.conf");
+  MENU_MESSAGE("Path: ux0:user/00/savedata/mappings/vita.conf");
   MENU_MESSAGE("Example in github repo.");
   MENU_ENTRY(SETTINGS_BACK_DEADZONE, SETTINGS_VIEW_BACK_DEADZONE, "Back touchscreen deadzone", "");
   MENU_ENTRY(SETTINGS_SPECIAL_KEYS, SETTINGS_VIEW_SPECIAL_KEYS, "Touchscreen special keys", "");

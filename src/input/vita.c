@@ -28,14 +28,15 @@
 #include <openssl/evp.h>
 #include <ctype.h>
 
-#include "../graphics.h"
 #include "../config.h"
 #include "../connection.h"
+#include "../platform.h"
 #include "vita.h"
 #include "mapping.h"
 
 #include <Limelight.h>
 
+#include <psp2/kernel/clib.h>
 #include <psp2/net/net.h>
 #include <psp2/sysmodule.h>
 #include <psp2/kernel/sysmem.h>
@@ -43,10 +44,15 @@
 
 #include <psp2/ctrl.h>
 #include <psp2/touch.h>
+#include <psp2/ime.h>
+#include <psp2/systemgesture.h>
 #include <psp2/rtc.h>
 
 #define WIDTH 960
 #define HEIGHT 544
+
+#define TOUCH_WIDTH 1920
+#define TOUCH_HEIGHT 1088
 
 struct mapping map = {0};
 
@@ -70,165 +76,156 @@ typedef struct Section {
   Point right;
 } Section;
 
-typedef struct TouchData {
-  short button;
-  short finger;
-  Point points[4];
-} TouchData;
+typedef struct BackTouchState {
+	int nw;
+	int ne;
+	int sw;
+	int se;
+} BackTouchState;
 
-#define lerp(value, from_max, to_max) ((((value*10) * (to_max*10))/(from_max*10))/10)
+static SceSystemGestureTouchRecognizer *touch_recognizers;
+static bool lhold_rec = false;
+static bool scroll_rec = false;
+
+extern SceUID state_evf;
+static unsigned int libime_work[SCE_IME_WORK_BUFFER_SIZE / sizeof(unsigned int)];
+static char libime_initval[8] = { 1 };
+static char libime_out[SCE_IME_MAX_PREEDIT_LENGTH * 2 + 8];
+static char libime_out_old[SCE_IME_MAX_PREEDIT_LENGTH * 2 + 8];
+static int caret_index_old = 0;
+static SceImeCaret caret_rev;
 
 double mouse_multiplier;
 
-#define MOUSE_ACTION_DELAY 100000 // 100ms
-
-inline bool mouse_click(short finger_count, bool press) {
-  int mode;
-
-  if (press) {
-    mode = BUTTON_ACTION_PRESS;
-  } else {
-    mode = BUTTON_ACTION_RELEASE;
-  }
-
-  switch (finger_count) {
-    case 1:
-      LiSendMouseButtonEvent(mode, BUTTON_LEFT);
-      return true;
-    case 2:
-      LiSendMouseButtonEvent(mode, BUTTON_RIGHT);
-      return true;
-  }
-  return false;
+static void mouse_lhold(unsigned int reportNum) {
+	SceSystemGestureTouchEvent hold_event;
+	SceUInt32 event_num_buffer = 0;
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_MOUSE_LHOLD], &hold_event, 1, &event_num_buffer);
+	if (event_num_buffer > 0 && reportNum == 1 && hold_event.eventState == SCE_SYSTEM_GESTURE_TOUCH_STATE_BEGIN) {
+		LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
+		lhold_rec = true;
+	}
+	else if (lhold_rec && reportNum == 0) {
+		LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+		lhold_rec = false;
+	}
 }
 
-inline void move_mouse(TouchData old, TouchData cur) {
-  double delta_x = (cur.points[0].x - old.points[0].x) / 2.;
-  double delta_y = (cur.points[0].y - old.points[0].y) / 2.;
-
-  if (delta_x == 0 && delta_y == 0) {
-    return;
-  }
-
-  int x = lround(delta_x * mouse_multiplier);
-  int y = lround(delta_y * mouse_multiplier);
-
-  LiSendMouseMoveEvent(x, y);
+static void mouse_click(unsigned int reportNum) {
+	SceSystemGestureTouchEvent tap_event;
+	SceUInt32 event_num_buffer = 0;
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_MOUSE_CLICK], &tap_event, 1, &event_num_buffer);
+	if (event_num_buffer > 0)
+	if (event_num_buffer > 0 && reportNum == 0) {
+		LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
+		LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+	}
+	else if (event_num_buffer > 0 && reportNum == 1) {
+		LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
+		LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
+	}
 }
 
-inline void move_wheel(TouchData old, TouchData cur) {
-  int old_y = (old.points[0].y + old.points[1].y) / 2;
-  int cur_y = (cur.points[0].y + cur.points[1].y) / 2;
-  int delta_y = (cur_y - old_y) / 2;
-  if (!delta_y) {
-    return;
-  }
-  LiSendScrollEvent(delta_y);
+static void mouse_move(unsigned int reportNum) {
+	SceSystemGestureTouchEvent drag_event;
+	SceUInt32 mouse_drag_touching = 0;
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_MOUSE_DRAG], &drag_event, 1, &mouse_drag_touching);
+	if (mouse_drag_touching > 0 && reportNum == 1) {
+
+		int x = lround(drag_event.property.drag.deltaVector.x * mouse_multiplier);
+		int y = lround(drag_event.property.drag.deltaVector.y * mouse_multiplier);
+
+		LiSendMouseMoveEvent(x, y);
+	}
+	else if (mouse_drag_touching > 0 && reportNum == 2) {
+		int delta = lround(drag_event.property.drag.deltaVector.y * 0.1f);
+		LiSendScrollEvent(delta);
+		if (lhold_rec) {
+			LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+			lhold_rec = false;
+		}
+		scroll_rec = true;
+	}
+	else if (scroll_rec && reportNum != 2)
+		scroll_rec = false;
 }
 
 SceCtrlData pad, pad_old;
-TouchData touch;
-TouchData touch_old, swipe;
 SceTouchData front, back;
-
-int front_state = NO_TOUCH_ACTION;
-short finger_count = 0;
-SceRtcTick current, until;
-
 
 static int special_status;
 
 input_data curr, old;
+BackTouchState back_touch_state;
 int controller_port;
 
-// TODO config
 static int VERTICAL;
 static int HORIZONTAL;
 
-#define IN_SECTION(SECTION, X, Y) \
-    ((SECTION).left.x <= (X) && (X) <= (SECTION).right.x && \
-     (SECTION).left.y <= (Y) && (Y) <= (SECTION).right.y)
-
-// TODO sections
-Section BACK_SECTIONS[4];
-Section FRONT_SECTIONS[4];
-
-inline uint8_t read_backscreen() {
-  for (int i = 0; i < back.reportNum; i++) {
-    int x = lerp(back.report[i].x, 1919, WIDTH);
-    int y = lerp(back.report[i].y, 1087, HEIGHT);
-
-    if ((touch.button & TOUCHSEC_NORTHWEST) == 0) {
-      if (IN_SECTION(BACK_SECTIONS[0], x, y)) {
-        touch.button |= TOUCHSEC_NORTHWEST;
-        continue;
-      }
-    }
-
-    if ((touch.button & TOUCHSEC_NORTHEAST) == 0) {
-      if (IN_SECTION(BACK_SECTIONS[1], x, y)) {
-        touch.button |= TOUCHSEC_NORTHEAST;
-        continue;
-      }
-    }
-
-    if ((touch.button & TOUCHSEC_SOUTHWEST) == 0) {
-      if (IN_SECTION(BACK_SECTIONS[2], x, y)) {
-        touch.button |= TOUCHSEC_SOUTHWEST;
-        continue;
-      }
-    }
-
-    if ((touch.button & TOUCHSEC_SOUTHEAST) == 0) {
-      if (IN_SECTION(BACK_SECTIONS[3], x, y)) {
-        touch.button |= TOUCHSEC_SOUTHEAST;
-        continue;
-      }
-    }
-  }
-  return 0;
+//Virtual IME string: |wchar0(dummy)||wchar1(dummy)|<-caret always returned to that position>|wchar2(value out)||wchar3(dummy)|
+//Caret is always set to middle position so we can detect special keys like backspace
+void vitainput_ime_event_handler(void *arg, const SceImeEvent *e)
+{
+	switch (e->id) {
+	case SCE_IME_EVENT_UPDATE_TEXT:;
+		if (e->param.text.caretIndex == 0) {
+			LiSendKeyboardEvent(0x08, KEY_ACTION_DOWN, 0);
+			LiSendKeyboardEvent(0x08, KEY_ACTION_UP, 0);
+			sceImeSetText((SceWChar16 *)libime_initval, 4);
+		}
+		else {
+			short upperchar = sceClibToupper(*(short *)&libime_out[2]);
+			LiSendKeyboardEvent(upperchar, KEY_ACTION_DOWN, 0);
+			LiSendKeyboardEvent(upperchar, KEY_ACTION_UP, 0);
+			sceClibMemset(&caret_rev, 0, sizeof(SceImeCaret));
+			caret_rev.index = 1;
+			sceImeSetCaret(&caret_rev);
+			sceImeSetText((SceWChar16 *)libime_initval, 4);
+		}
+		break;
+	case SCE_IME_EVENT_PRESS_ENTER:
+		LiSendKeyboardEvent(0x0D, KEY_ACTION_DOWN, 0);
+		LiSendKeyboardEvent(0x0D, KEY_ACTION_UP, 0);
+	case SCE_IME_EVENT_PRESS_CLOSE:
+		sceImeClose();
+		sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_IS_IME);
+		break;
+	}
 }
 
+void open_keyboard(void) {
 
-inline uint8_t read_frontscreen() {
-  for (int i = 0; i < front.reportNum; i++) {
-    int x = lerp(front.report[i].x, 1919, WIDTH);
-    int y = lerp(front.report[i].y, 1087, HEIGHT);
+	if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_IS_IME, SCE_KERNEL_EVF_WAITMODE_AND, NULL)) {
+		sceImeClose();
+		sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_IS_IME);
+		return;
+	}
 
-    if ((touch.button & TOUCHSEC_SPECIAL_NW) == 0) {
-      if (IN_SECTION(FRONT_SECTIONS[0], x, y)) {
-        touch.button |= TOUCHSEC_SPECIAL_NW;
-        continue;
-      }
-    }
+	sceClibMemset(libime_out, 0, (SCE_IME_MAX_PREEDIT_LENGTH * 2 + 6));
 
-    if ((touch.button & TOUCHSEC_SPECIAL_NE) == 0) {
-      if (IN_SECTION(FRONT_SECTIONS[1], x, y)) {
-        touch.button |= TOUCHSEC_SPECIAL_NE;
-        continue;
-      }
-    }
+	SceImeParam param;
+	sceImeParamInit(&param);
+	//param.supportedLanguages = 0;
+	param.languagesForced = false;
+	param.option = SCE_IME_OPTION_NO_ASSISTANCE | SCE_IME_OPTION_NO_AUTO_CAPITALIZATION;
+	param.filter = NULL;
+	param.work = libime_work;
+	param.arg = NULL;
+	param.type = SCE_IME_TYPE_DEFAULT;
+	param.inputTextBuffer = (SceWChar16 *)libime_out;
+	param.maxTextLength = 4;
+	param.handler = vitainput_ime_event_handler;
+	param.initialText = (SceWChar16 *)libime_initval;
+	sceImeOpen(&param);
+	sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_IS_IME);
+}
 
-    if ((touch.button & TOUCHSEC_SPECIAL_SW) == 0) {
-      if (IN_SECTION(FRONT_SECTIONS[2], x, y)) {
-        touch.button |= TOUCHSEC_SPECIAL_SW;
-        continue;
-      }
-    }
-
-    if ((touch.button & TOUCHSEC_SPECIAL_SE) == 0) {
-      if (IN_SECTION(FRONT_SECTIONS[3], x, y)) {
-        touch.button |= TOUCHSEC_SPECIAL_SE;
-        continue;
-      }
-    }
-
-    // FIXME if touch same section using multiple finger, they can count finger
-    touch.points[touch.finger].x = x;
-    touch.points[touch.finger].y = y;
-    touch.finger += 1;
-  }
-  return 0;
+static void update_back_touch_state() {
+	SceSystemGestureTouchEvent drag_event;
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_BACK_NW], &drag_event, 1, &back_touch_state.nw);
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_BACK_NE], &drag_event, 1, &back_touch_state.ne);
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_BACK_SW], &drag_event, 1, &back_touch_state.sw);
+	sceSystemGestureGetTouchEvents(&touch_recognizers[TOUCHREC_BACK_SE], &drag_event, 1, &back_touch_state.se);
 }
 
 inline uint32_t is_pressed(uint32_t defined) {
@@ -238,21 +235,25 @@ inline uint32_t is_pressed(uint32_t defined) {
   switch(dev_type) {
     case INPUT_TYPE_GAMEPAD:
       return pad.buttons & dev_val;
-    case INPUT_TYPE_TOUCHSCREEN:
-      return touch.button & dev_val;
-  }
-  return 0;
-}
-
-inline uint32_t is_old_pressed(uint32_t defined) {
-  uint32_t dev_type = defined & INPUT_TYPE_MASK;
-  uint32_t dev_val  = defined & INPUT_VALUE_MASK;
-
-  switch(dev_type) {
-    case INPUT_TYPE_GAMEPAD:
-      return pad_old.buttons & dev_val;
-    case INPUT_TYPE_TOUCHSCREEN:
-      return touch_old.button & dev_val;
+    case INPUT_TYPE_BACK_TOUCHSCREEN:
+		switch (dev_val) {
+		case TOUCHSEC_BACK_NORTHWEST:
+			if (back_touch_state.nw > 0) {
+				return 1;
+			}
+		case TOUCHSEC_BACK_NORTHEAST:
+			if (back_touch_state.ne > 0) {
+				return 1;
+			}
+		case TOUCHSEC_BACK_SOUTHWEST:
+			if (back_touch_state.sw > 0) {
+				return 1;
+			}
+		case TOUCHSEC_BACK_SOUTHEAST:
+			if (back_touch_state.se > 0) {
+				return 1;
+			}
+	  }
   }
   return 0;
 }
@@ -289,73 +290,66 @@ inline short read_analog(uint32_t defined) {
   return is_pressed(defined) ? 0xff : 0;
 }
 
-inline void special(uint32_t defined, uint32_t pressed, uint32_t old_pressed) {
-  uint32_t dev_type = defined & INPUT_TYPE_MASK;
-  uint32_t dev_val  = defined & INPUT_VALUE_MASK;
+static void special(uint32_t defined, int touchrec) {
+	SceSystemGestureTouchEvent tap_event;
+	SceUInt32 event_num_buffer = 0;
+	uint32_t dev_type;
+	uint32_t dev_val;
 
-  if (pressed) {
-    switch(dev_type) {
-      case INPUT_TYPE_SPECIAL:
-        if (dev_val == INPUT_SPECIAL_KEY_PAUSE) {
-          connection_minimize();
-          return;
-        }
-      case INPUT_TYPE_GAMEPAD:
-        curr.button |= dev_val;
-        return;
-      case INPUT_TYPE_ANALOG:
-        switch(dev_val) {
-          case LEFT_TRIGGER:
-            curr.lt = 0xff;
-            return;
-          case RIGHT_TRIGGER:
-            curr.rt = 0xff;
-            return;
-        }
-        return;
-      case INPUT_TYPE_MOUSE:
-        if (!old_pressed) {
-          LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, dev_val);
-        }
-        return;
-      case INPUT_TYPE_KEYBOARD:
-       if (!old_pressed) {
-          LiSendKeyboardEvent(dev_val, KEY_ACTION_DOWN, 0);
-       }
-       return;
-    }
-  } else {
-    // released
-    switch(dev_type) {
-      case INPUT_TYPE_MOUSE:
-        if (old_pressed) {
-          LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, dev_val);
-        }
-        return;
-      case INPUT_TYPE_KEYBOARD:
-        if (old_pressed) {
-          LiSendKeyboardEvent(dev_val, KEY_ACTION_UP, 0);
-        }
-        return;
-    }
-  }
-
+	sceSystemGestureGetTouchEvents(&touch_recognizers[touchrec], &tap_event, 1, &event_num_buffer);
+	if (event_num_buffer > 0) {
+		dev_type = defined & INPUT_TYPE_MASK;
+		dev_val = defined & INPUT_VALUE_MASK;
+		switch (dev_type) {
+		case INPUT_TYPE_SPECIAL:
+			switch (dev_val) {
+			case INPUT_SPECIAL_KEY_PAUSE:
+				connection_minimize();
+				return;
+			case INPUT_SPECIAL_KEY_KEYBOARD:
+				open_keyboard();
+				return;
+			}
+		case INPUT_TYPE_GAMEPAD:
+			curr.button |= dev_val;
+			return;
+		case INPUT_TYPE_ANALOG:
+			switch (dev_val) {
+			case LEFT_TRIGGER:
+				curr.lt = 0xff;
+				return;
+			case RIGHT_TRIGGER:
+				curr.rt = 0xff;
+				return;
+			}
+			return;
+		case INPUT_TYPE_MOUSE:
+			LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, dev_val);
+			LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, dev_val);
+			return;
+		case INPUT_TYPE_KEYBOARD:
+			LiSendKeyboardEvent(dev_val, KEY_ACTION_DOWN, 0);
+			LiSendKeyboardEvent(dev_val, KEY_ACTION_UP, 0);
+			return;
+		}
+	}
 }
 
 static inline void vitainput_process(void) {
-  memset(&pad, 0, sizeof(pad));
-  memset(&touch, 0, sizeof(TouchData));
-  memset(&curr, 0, sizeof(input_data));
+  sceClibMemset(&pad, 0, sizeof(pad));
+  sceClibMemset(&curr, 0, sizeof(input_data));
 
   sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
   sceCtrlPeekBufferPositiveExt2(controller_port, &pad, 1);
 
   sceTouchPeek(SCE_TOUCH_PORT_FRONT, &front, 1);
   sceTouchPeek(SCE_TOUCH_PORT_BACK, &back, 1);
-  read_frontscreen();
-  read_backscreen();
 
-  sceRtcGetCurrentTick(&current);
+  sceSystemGestureUpdatePrimitiveTouchRecognizer(&front, &back);
+  for (int i = 0; i < TOUCH_RECOGNIZERS_NUM; i++)
+	  sceSystemGestureUpdateTouchRecognizer(&touch_recognizers[i]);
+
+  update_back_touch_state();
 
   // buttons
   curr.button |= is_pressed(map.btn_dpad_up)    ? UP_FLAG     : 0;
@@ -382,92 +376,32 @@ static inline void vitainput_process(void) {
   curr.ry = read_analog(map.abs_ry);
 
   // special touchscreen buttons
-  special(config.special_keys.nw,
-          is_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_NW),
-          is_old_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_NW));
-  special(config.special_keys.ne,
-          is_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_NE),
-          is_old_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_NE));
-  special(config.special_keys.sw,
-          is_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_SW),
-          is_old_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_SW));
-  special(config.special_keys.se,
-          is_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_SE),
-          is_old_pressed(INPUT_TYPE_TOUCHSCREEN | TOUCHSEC_SPECIAL_SE));
+  special(config.special_keys.nw, TOUCHREC_SPECIAL_NW);
+  special(config.special_keys.ne, TOUCHREC_SPECIAL_NE);
+  special(config.special_keys.sw, TOUCHREC_SPECIAL_SW);
+  special(config.special_keys.se, TOUCHREC_SPECIAL_SE);
 
-  // mouse
-  switch (front_state) {
-    case NO_TOUCH_ACTION:
-      if (touch.finger > 0) {
-        front_state = ON_SCREEN_TOUCH;
-        finger_count = touch.finger;
-        sceRtcTickAddMicroseconds(&until, &current, MOUSE_ACTION_DELAY);
-      }
-      break;
-    case ON_SCREEN_TOUCH:
-      if (sceRtcCompareTick(&current, &until) < 0) {
-        if (touch.finger < finger_count) {
-          // TAP
-          if (mouse_click(finger_count, true)) {
-            front_state = SCREEN_TAP;
-            sceRtcTickAddMicroseconds(&until, &current, MOUSE_ACTION_DELAY);
-          } else {
-            front_state = NO_TOUCH_ACTION;
-          }
-        } else if (touch.finger > finger_count) {
-          // finger count changed
-          finger_count = touch.finger;
-        }
-      } else {
-        front_state = SWIPE_START;
-      }
-      break;
-    case SCREEN_TAP:
-      if (sceRtcCompareTick(&current, &until) >= 0) {
-        mouse_click(finger_count, false);
-
-        front_state = NO_TOUCH_ACTION;
-      }
-      break;
-    case SWIPE_START:
-      memcpy(&swipe, &touch, sizeof(swipe));
-      front_state = ON_SCREEN_SWIPE;
-      break;
-    case ON_SCREEN_SWIPE:
-      if (touch.finger > 0) {
-        switch (touch.finger) {
-          case 1:
-            move_mouse(swipe, touch);
-            break;
-          case 2:
-            move_wheel(swipe, touch);
-            break;
-        }
-        memcpy(&swipe, &touch, sizeof(swipe));
-      } else {
-        front_state = NO_TOUCH_ACTION;
-      }
-      break;
-  }
-
-  if (memcmp(&curr, &old, sizeof(input_data)) != 0) {
+  if ((sceClibMemcmp(&curr, &old, sizeof(input_data)) != 0) &&
+	  sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_IS_IME, SCE_KERNEL_EVF_WAITMODE_AND, NULL)) {
     LiSendControllerEvent(curr.button, curr.lt, curr.rt,
                           curr.lx, -1 * curr.ly, curr.rx, -1 * curr.ry);
-    memcpy(&old, &curr, sizeof(input_data));
-    memcpy(&pad_old, &pad, sizeof(SceCtrlData));
+    sceClibMemcpy(&old, &curr, sizeof(input_data));
+    sceClibMemcpy(&pad_old, &pad, sizeof(SceCtrlData));
   }
-  if (memcmp(&touch, &touch_old, sizeof(TouchData)) != 0) {
-    memcpy(&touch_old, &touch, sizeof(TouchData));
-  }
-}
 
-static uint8_t active_input_thread = 0;
+  mouse_click(front.reportNum);
+  mouse_move(front.reportNum);
+  if (!scroll_rec)
+	  mouse_lhold(front.reportNum);
+
+}
 
 int vitainput_thread(SceSize args, void *argp) {
   while (1) {
-    if (active_input_thread) {
-      vitainput_process();
-    }
+    
+	sceKernelWaitEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG | FLAG_MOONLIGHT_ACTIVE_INPUT_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL, NULL);
+
+    vitainput_process();
 
     sceKernelDelayThread(5000); // 5 ms
   }
@@ -475,12 +409,40 @@ int vitainput_thread(SceSize args, void *argp) {
   return 0;
 }
 
+void vitainput_init_touch() {
+	sceSysmoduleLoadModule(SCE_SYSMODULE_SYSTEM_GESTURE);
+	sceSystemGestureInitializePrimitiveTouchRecognizer(NULL);
+	touch_recognizers = (SceSystemGestureTouchRecognizer *)calloc(TOUCH_RECOGNIZERS_NUM, sizeof(SceSystemGestureTouchRecognizer));
+	//Mouse events recognizers
+	SceSystemGestureRectangle rect;
+	rect.x = 0;
+	rect.y = 0;
+	rect.width = 1920;
+	rect.height = 1088;
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_MOUSE_DRAG], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_MOUSE_CLICK], SCE_SYSTEM_GESTURE_TYPE_TAP, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_MOUSE_LHOLD], SCE_SYSTEM_GESTURE_TYPE_TAP_AND_HOLD, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	//Special zones
+	sceClibMemset(&rect, 0, sizeof(SceSystemGestureRectangle));
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_SPECIAL_NW], SCE_SYSTEM_GESTURE_TYPE_TAP, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_SPECIAL_NE], SCE_SYSTEM_GESTURE_TYPE_TAP, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_SPECIAL_SW], SCE_SYSTEM_GESTURE_TYPE_TAP, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_SPECIAL_SE], SCE_SYSTEM_GESTURE_TYPE_TAP, SCE_TOUCH_PORT_FRONT, &rect, NULL);
+	//Back touchpad
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_BACK_NW], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_BACK, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_BACK_NE], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_BACK, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_BACK_SW], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_BACK, &rect, NULL);
+	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_BACK_SE], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_BACK, &rect, NULL);
+}
+
 bool vitainput_init() {
   sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
   sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
   sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_START);
 
-  SceUID thid = sceKernelCreateThread("vitainput_thread", vitainput_thread, 0, 0x40000, 0, 0, NULL);
+  vitainput_init_touch();
+
+  SceUID thid = sceKernelCreateThread("vitainput_thread", vitainput_thread, 70, 0x1000, 0, SCE_KERNEL_CPU_MASK_USER_2, NULL);
   if (thid >= 0) {
     sceKernelStartThread(thid, 0, NULL);
     return true;
@@ -516,73 +478,81 @@ void vitainput_config(CONFIGURATION config) {
     map.btn_tl2       = SCE_CTRL_L3         | INPUT_TYPE_GAMEPAD;
     map.btn_tr2       = SCE_CTRL_R3         | INPUT_TYPE_GAMEPAD;
   } else {
-    map.btn_tl        = TOUCHSEC_NORTHWEST  | INPUT_TYPE_TOUCHSCREEN;
-    map.btn_tr        = TOUCHSEC_NORTHEAST  | INPUT_TYPE_TOUCHSCREEN;
-    map.btn_tl2       = TOUCHSEC_SOUTHWEST  | INPUT_TYPE_TOUCHSCREEN;
-    map.btn_tr2       = TOUCHSEC_SOUTHEAST  | INPUT_TYPE_TOUCHSCREEN;
+    map.btn_tl        = TOUCHSEC_BACK_NORTHWEST  | INPUT_TYPE_BACK_TOUCHSCREEN;
+    map.btn_tr        = TOUCHSEC_BACK_NORTHEAST  | INPUT_TYPE_BACK_TOUCHSCREEN;
+    map.btn_tl2       = TOUCHSEC_BACK_SOUTHWEST  | INPUT_TYPE_BACK_TOUCHSCREEN;
+    map.btn_tr2       = TOUCHSEC_BACK_SOUTHEAST  | INPUT_TYPE_BACK_TOUCHSCREEN;
   }
 
   if (config.mapping) {
     char mapping_file_path[256];
-    sprintf(mapping_file_path, "ux0:data/moonlight/%s", config.mapping);
-    printf("Loading mapping at %s\n", mapping_file_path);
+    sprintf(mapping_file_path, "savedata0:%s", config.mapping);
+    sceClibPrintf("Loading mapping at %s\n", mapping_file_path);
     mapping_load(mapping_file_path, &map);
   }
 
   controller_port = config.model == SCE_KERNEL_MODEL_VITATV ? 1 : 0;
 
-  VERTICAL   = (WIDTH - config.back_deadzone.left - config.back_deadzone.right) / 2
-             + config.back_deadzone.left;
-  HORIZONTAL = (HEIGHT - config.back_deadzone.top - config.back_deadzone.bottom) / 2
-             + config.back_deadzone.top;
+  int real_offset = config.special_keys.offset * 2;
+  int real_size = config.special_keys.size * 2;
 
-  BACK_SECTIONS[0].left.x  = config.back_deadzone.left;
-  BACK_SECTIONS[0].left.y  = config.back_deadzone.top;
-  BACK_SECTIONS[0].right.x = VERTICAL;
-  BACK_SECTIONS[0].right.y = HORIZONTAL;
+  //Update special touch areas
+  SceSystemGestureRectangle rect;
+  rect.x = real_offset;
+  rect.y = real_offset;
+  rect.width = real_size;
+  rect.height = real_size;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_SPECIAL_NW], &rect);
+  rect.x = TOUCH_WIDTH - real_offset - real_size;
+  rect.y = real_offset;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_SPECIAL_NE], &rect);
+  rect.x = real_offset;
+  rect.y = TOUCH_HEIGHT - real_offset - real_size;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_SPECIAL_SW], &rect);
+  rect.x = TOUCH_WIDTH - real_offset - real_size;
+  rect.y = TOUCH_HEIGHT - real_offset - real_size;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_SPECIAL_SE], &rect);
 
-  BACK_SECTIONS[1].left.x  = VERTICAL;
-  BACK_SECTIONS[1].left.y  = config.back_deadzone.top;
-  BACK_SECTIONS[1].right.x = WIDTH - config.back_deadzone.right;
-  BACK_SECTIONS[1].right.y = HORIZONTAL;
+  //Update mouse click area
+  rect.x = real_offset + real_size;
+  rect.y = real_offset + real_size;
+  rect.width = TOUCH_WIDTH - real_offset - real_size;
+  rect.height = TOUCH_HEIGHT - real_offset - real_size;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_MOUSE_CLICK], &rect);
 
-  BACK_SECTIONS[2].left.x  = config.back_deadzone.left;
-  BACK_SECTIONS[2].left.y  = HORIZONTAL;
-  BACK_SECTIONS[2].right.x = VERTICAL;
-  BACK_SECTIONS[2].right.y = HEIGHT - config.back_deadzone.bottom;
+  //Update back touch areas
+  int back_real_deadzone_left = config.back_deadzone.left * 2;
+  int back_real_deadzone_right = config.back_deadzone.right * 2;
+  int back_real_deadzone_top = config.back_deadzone.top * 2;
+  int back_real_deadzone_bottom = config.back_deadzone.bottom * 2;
 
-  BACK_SECTIONS[3].left.x  = VERTICAL;
-  BACK_SECTIONS[3].left.y  = HORIZONTAL;
-  BACK_SECTIONS[3].right.x = WIDTH - config.back_deadzone.right;
-  BACK_SECTIONS[3].right.y = HEIGHT - config.back_deadzone.bottom;
+  HORIZONTAL   = ((WIDTH - config.back_deadzone.left - config.back_deadzone.right) / 2
+             + config.back_deadzone.left) * 2;
+  VERTICAL = ((HEIGHT - config.back_deadzone.top - config.back_deadzone.bottom) / 2
+             + config.back_deadzone.top) * 2;
 
-  FRONT_SECTIONS[0].left.x  = config.special_keys.offset;
-  FRONT_SECTIONS[0].left.y  = config.special_keys.offset;
-  FRONT_SECTIONS[0].right.x = config.special_keys.offset + config.special_keys.size;
-  FRONT_SECTIONS[0].right.y = config.special_keys.offset + config.special_keys.size;
+  rect.x = back_real_deadzone_left;
+  rect.y = back_real_deadzone_top;
+  rect.width = HORIZONTAL;
+  rect.height = VERTICAL;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_BACK_NW], &rect);
+  rect.x = HORIZONTAL;
+  rect.y = back_real_deadzone_top;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_BACK_NE], &rect);
+  rect.x = back_real_deadzone_left;
+  rect.y = VERTICAL;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_BACK_SW], &rect);
+  rect.x = HORIZONTAL;
+  rect.y = VERTICAL;
+  sceSystemGestureUpdateTouchRecognizerRectangle(&touch_recognizers[TOUCHREC_BACK_SE], &rect);
 
-  FRONT_SECTIONS[1].left.x  = WIDTH - config.special_keys.offset - config.special_keys.size;
-  FRONT_SECTIONS[1].left.y  = config.special_keys.offset;
-  FRONT_SECTIONS[1].right.x = WIDTH - config.special_keys.offset;
-  FRONT_SECTIONS[1].right.y = config.special_keys.offset + config.special_keys.size;
-
-  FRONT_SECTIONS[2].left.x  = config.special_keys.offset;
-  FRONT_SECTIONS[2].left.y  = HEIGHT - config.special_keys.offset - config.special_keys.size;
-  FRONT_SECTIONS[2].right.x = config.special_keys.offset + config.special_keys.size;
-  FRONT_SECTIONS[2].right.y = HEIGHT - config.special_keys.offset;
-
-  FRONT_SECTIONS[3].left.x  = WIDTH - config.special_keys.offset - config.special_keys.size;
-  FRONT_SECTIONS[3].left.y  = HEIGHT - config.special_keys.offset - config.special_keys.size;
-  FRONT_SECTIONS[3].right.x = WIDTH - config.special_keys.offset;
-  FRONT_SECTIONS[3].right.y = HEIGHT - config.special_keys.offset;
-
-  mouse_multiplier = 1 + (0.01 * config.mouse_acceleration);
+  mouse_multiplier = 0.003 * config.mouse_acceleration;
 }
 
 void vitainput_start(void) {
-  active_input_thread = true;
+  sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_INPUT_THREAD);
 }
 
 void vitainput_stop(void) {
-  active_input_thread = false;
+  sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_ACTIVE_INPUT_THREAD);
 }

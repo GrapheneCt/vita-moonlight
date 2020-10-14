@@ -17,12 +17,16 @@
  * along with Moonlight; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "../config.h"
 #include "../audio.h"
 #include "../debug.h"
+#include "../platform.h"
 
 #include <stdio.h>
 #include <opus/opus_multistream.h>
 #include <psp2/audioout.h>
+#include <psp2/kernel/threadmgr.h>
+#include <psp2/appmgr.h>
 
 enum {
   VITA_AUDIO_INIT_OK        = 0,
@@ -36,16 +40,21 @@ enum {
 static int decode_offset;
 static int port;
 
-static int active_audio_thread = true;
 static OpusMSDecoder* decoder = NULL;
 
 static short buffer[BUFFER_SIZE];
+
+extern SceUID state_evf;
 
 static void vita_renderer_cleanup() {
   if (decoder != NULL) {
     opus_multistream_decoder_destroy(decoder);
     decoder = NULL;
   }
+  if (config.enable_bgm_mode)
+	sceAppMgrReleaseBgmPort();
+  sceAudioOutOutput(port, NULL);
+  sceAudioOutReleasePort(port);
 }
 
 static int vita_renderer_init(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, void* audioContext, int arFlags) {
@@ -60,8 +69,13 @@ static int vita_renderer_init(int audioConfiguration, POPUS_MULTISTREAM_CONFIGUR
   if (rc < 0) {
       return VITA_AUDIO_ERROR_BAD_OPUS;
   }
-
-  port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
+  
+  if (config.enable_bgm_mode) {
+	sceAppMgrAcquireBgmPort();
+	port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
+  }
+  else
+	port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
 
   if (port < 0) {
       vita_renderer_cleanup();
@@ -73,6 +87,7 @@ static int vita_renderer_init(int audioConfiguration, POPUS_MULTISTREAM_CONFIGUR
 }
 
 static void vita_renderer_decode_and_play_sample(char* data, int length) {
+
   if (!data)
     return;
 
@@ -84,9 +99,14 @@ static void vita_renderer_decode_and_play_sample(char* data, int length) {
 
     if (decode_offset == VITA_SAMPLES) {
       decode_offset = 0;
-      if (active_audio_thread) {
-        sceAudioOutOutput(port, buffer);
-      }
+	  if (!config.enable_bgm_mode) {
+		if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG | FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL))
+	      sceAudioOutOutput(port, buffer);
+	  }
+	  else {
+		if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL))
+		  sceAudioOutOutput(port, buffer);
+	  }
     }
   } else {
     vita_debug_log("Opus error from decode: %d\n", decodeLen);
@@ -102,9 +122,9 @@ AUDIO_RENDERER_CALLBACKS audio_callbacks_vita = {
 
 
 void vitaaudio_start() {
-  active_audio_thread = true;
+  sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD);
 }
 
 void vitaaudio_stop() {
-  active_audio_thread = false;
+  sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD);
 }

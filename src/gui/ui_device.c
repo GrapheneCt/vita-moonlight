@@ -25,9 +25,10 @@
 #include <psp2/ctrl.h>
 #include <psp2/rtc.h>
 #include <psp2/touch.h>
-#include <psp2/io/stat.h>
+#include <psp2/kernel/iofilemgr.h>
+#include <psp2/kernel/clib.h>
 #include <psp2/kernel/processmgr.h>
-#include <vita2d.h>
+#include <vita2d_sys.h>
 #include <Limelight.h>
 #include <client.h>
 #include <errors.h>
@@ -80,7 +81,7 @@ char* strrstr(const char *str, const char *pat) {
   if (patlen > len)
     return NULL;
   for (p = str + (len - patlen); p > str; --p)
-    if (*p == *pat && strncmp(p, pat, patlen) == 0)
+    if (*p == *pat && sceClibStrncmp(p, pat, patlen) == 0)
       return (char *) p;
   return NULL;
 }
@@ -92,7 +93,7 @@ static int mdns_discovery_callback(const struct sockaddr* from,
                                    size_t length) {
   switch (type) {
     case MDNS_RECORDTYPE_PTR:
-      memset(&devices[found_device], 0, sizeof(device_info_t));
+      sceClibMemset(&devices[found_device], 0, sizeof(device_info_t));
       break;
     case MDNS_RECORDTYPE_SRV:
       {
@@ -106,7 +107,7 @@ static int mdns_discovery_callback(const struct sockaddr* from,
           len = 255;
         }
         // FIXME: remove special codes
-        strncpy(devices[found_device].name, srv.name.str, p - srv.name.str);
+        sceClibStrncpy(devices[found_device].name, srv.name.str, p - srv.name.str);
       }
       break;
     case MDNS_RECORDTYPE_A:
@@ -169,7 +170,7 @@ exit:
 
 SceUID start_search_thread() {
   found_device = 0;
-  SceUID thid = sceKernelCreateThread("mdns", mdns_discovery_main, 0x10000100, 0x10000, 0, 0, NULL);
+  SceUID thid = sceKernelCreateThread("mdns", mdns_discovery_main, 70, 0x1000, 0, SCE_KERNEL_CPU_MASK_USER_0, NULL);
   if (thid < 0) {
     return -1;
   }
@@ -229,7 +230,7 @@ static int ui_search_device_back(void *context) {
 int ui_search_device_loop() {
   int idx = 0;
   menu_entry menu[64];
-  memset(DEVICE_ENTRY_IDX, 0, sizeof(DEVICE_ENTRY_IDX));
+  sceClibMemset(DEVICE_ENTRY_IDX, 0, sizeof(DEVICE_ENTRY_IDX));
 
 #define MENU_CATEGORY(NAME) \
   do { \

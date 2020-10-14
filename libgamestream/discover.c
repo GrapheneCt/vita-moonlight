@@ -48,7 +48,7 @@ static void resolve_callback(AvahiServiceResolver *r, AvahiIfIndex interface, Av
     } else {
       char strAddress[AVAHI_ADDRESS_STR_MAX];
       avahi_address_snprint(strAddress, sizeof(strAddress), address);
-      printf(" %s (%s)\n", host_name, strAddress);
+      sceClibPrintf(" %s (%s)\n", host_name, strAddress);
     }
   }
 

@@ -17,6 +17,8 @@
  * along with Moonlight; if not, see <http://www.gnu.org/licenses/>.
  */
 
+void vitapower_termninate();
+
 bool vitapower_init();
 void vitapower_config(CONFIGURATION config);
 

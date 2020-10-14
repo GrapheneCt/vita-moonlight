@@ -28,10 +28,11 @@
 #include <sys/types.h>
 #include <ctype.h>
 
+#include <psp2/kernel/clib.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/ctrl.h>
-#include <psp2/io/stat.h>
-#include <vita2d.h>
+#include <psp2/kernel/iofilemgr.h>
+#include <vita2d_sys.h>
 
 SERVER_DATA server;
 PAPP_LIST server_applist;
@@ -39,7 +40,7 @@ int pos[2];
 
 int get_app_id(PAPP_LIST list, char *name) {
   while (list != NULL) {
-    if (strcmp(list->name, name) == 0)
+    if (sceClibStrcmp(list->name, name) == 0)
       return list->id;
 
     list = list->next;
@@ -65,11 +66,11 @@ void ui_connect_stream(int appId) {
   int ret = gs_start_app(&server, &config.stream, appId, config.sops, config.localaudio, 1);
   if (ret < 0) {
     if (ret == GS_NOT_SUPPORTED_4K)
-      display_error("Server doesn't support 4K\n");
+			display_error("Server doesn't support 4K\n");
     else if (ret == GS_NOT_SUPPORTED_MODE)
-      display_error("Server doesn't support %dx%d (%d fps)\n", config.stream.width, config.stream.height, config.stream.fps);
+			display_error("Server doesn't support %dx%d (%d fps)\n", config.stream.width, config.stream.height, config.stream.fps);
     else
-      display_error("Errorcode starting app: %d\n", ret);
+			display_error("Errorcode starting app: %d\n", ret);
 
     return;
   }
@@ -108,7 +109,7 @@ void ui_connect_stream(int appId) {
       case STAGE_INPUT_STREAM_START: stage = "Input stream start"; break;
     }
 
-    display_error("Failed to start stream: error code %d\nFailed stage: %s\n(error code %d)",
+		display_error("Failed to start stream: error code %d\nFailed stage: %s\n(error code %d)",
                   ret, stage, connection_failed_stage_code);
     return;
   }
@@ -143,16 +144,16 @@ int ui_connect_loop(int id, void *context, const input_data *input) {
   switch (id) {
     case CONNECT_PAIRUNPAIR:
       if (server.paired) {
-        flash_message("Unpairing...");
+				flash_message("Unpairing...");
         ret = gs_unpair(&server);
         if (ret == GS_OK) {
           if (connection_terminate()) {
-            display_error("Reconnect failed: %d", -1);
+						display_error("Reconnect failed: %d", -1);
             return 0;
           }
           return QUIT_RELOAD;
         }
-        display_error("Unpairing failed: %d", ret);
+				display_error("Unpairing failed: %d", ret);
         return 0;
       }
 
@@ -160,32 +161,32 @@ int ui_connect_loop(int id, void *context, const input_data *input) {
       char message[256];
       sprintf(pin, "%d%d%d%d",
               (int)rand() % 10, (int)rand() % 10, (int)rand() % 10, (int)rand() % 10);
-      flash_message("Please enter the following PIN\non the target PC:\n\n%s", pin);
+			flash_message("Please enter the following PIN\non the target PC:\n\n%s", pin);
 
       ret = gs_pair(&server, &pin[0]);
       if (ret == 0) {
         connection_paired();
         if (connection_terminate()) {
-          display_error("Reconnect failed: %d", -2);
+					display_error("Reconnect failed: %d", -2);
           return 0;
         }
         return QUIT_RELOAD;
       }
-      display_error("Pairing failed: %d", ret);
+			display_error("Pairing failed: %d", ret);
       return 0;
 
     case CONNECT_DISCONNECT:
       goto disconnect;
 
     case CONNECT_QUITAPP:
-      flash_message("Quitting...");
+			flash_message("Quitting...");
       ret = gs_quit_app(&server);
       if (ret == GS_OK) {
         connection_paired();
         server.currentGame = 0;
         return QUIT_RELOAD;
       }
-      display_error("Quitting failed: %d", ret);
+			display_error("Quitting failed: %d", ret);
       return 0;
 
     // application launcher / resume
@@ -202,7 +203,7 @@ int ui_connect_loop(int id, void *context, const input_data *input) {
           }
           // TODO: stop previous stream
         case LI_PAIRED:
-          flash_message("Stream starting...");
+					flash_message("Stream starting...");
           ui_connect_stream(id);
           break;
       }
@@ -222,7 +223,7 @@ mainloop:
   }
 
 disconnect:
-  flash_message("Disconnecting...");
+	flash_message("Disconnecting...");
   connection_terminate();
   sceKernelDelayThread(1000 * 1000);
   return 1;
@@ -231,28 +232,28 @@ disconnect:
 int ui_connect(char *name, char *address) {
   int ret;
   if (!connection_is_ready()) {
-    flash_message("Connecting to:\n %s...", address);
+		flash_message("Connecting to:\n %s...", address);
 
     char key_dir[4096];
     sprintf(key_dir, "%s/%s", config.key_dir, name);
 
     ret = gs_init(&server, address, key_dir, 0, true);
     if (ret == GS_OUT_OF_MEMORY) {
-      display_error("Not enough memory");
+			display_error("Not enough memory");
       return 0;
     } else if (ret == GS_INVALID) {
-      display_error("Invalid data received from server: %s\n", address, gs_error);
+			display_error("Invalid data received from server: %s\n", address, gs_error);
       return 0;
     } else if (ret == GS_UNSUPPORTED_VERSION) {
       if (!config.unsupported_version) {
-        display_error("Unsupported version: %s\n", gs_error);
+				display_error("Unsupported version: %s\n", gs_error);
         return 0;
       }
     } else if (ret == GS_ERROR) {
-      display_error("Gamestream error: %s\n", gs_error);
+			display_error("Gamestream error: %s\n", gs_error);
       return 0;
     } else if (ret != GS_OK) {
-      display_error("Can't connect to server\n%s", address);
+			display_error("Can't connect to server\n%s", address);
       return 0;
     }
 
@@ -267,7 +268,7 @@ int ui_connected_menu() {
   if (server.paired) {
     ret = gs_applist(&server, &server_applist);
     if (ret != GS_OK) {
-      display_error("Can't get applist!\n%d\n%s", ret, gs_error);
+			display_error("Can't get applist!\n%d\n%s", ret, gs_error);
       return 0;
     }
 
@@ -306,7 +307,7 @@ int ui_connected_menu() {
   //MENU
   MENU_MESSAGE("Connected to the server:", 0xffffffff);
   char server_info[256];
-  snprintf(server_info, 256,
+  sceClibSnprintf(server_info, 256,
            "IP: %s, GPU %s, GFE %s",
            server.serverInfo.address,
            server.gpuType,
@@ -367,7 +368,7 @@ int ui_connected_menu() {
 }
 
 device_info_t* ui_connect_and_pairing(device_info_t *info) {
-  flash_message("Test connecting to:\n %s...", info->internal);
+	flash_message("Test connecting to:\n %s...", info->internal);
   char key_dir[4096];
   sprintf(key_dir, "%s/%s", config.key_dir, info->name);
   sceIoMkdir(key_dir, 0777);
@@ -375,21 +376,21 @@ device_info_t* ui_connect_and_pairing(device_info_t *info) {
   int ret = gs_init(&server, info->internal, key_dir, 0, true);
 
   if (ret == GS_OUT_OF_MEMORY) {
-    display_error("Not enough memory");
+		display_error("Not enough memory");
     return NULL;
   } else if (ret == GS_INVALID) {
-    display_error("Invalid data received from server: %s\n", info->internal, gs_error);
+		display_error("Invalid data received from server: %s\n", info->internal, gs_error);
     return NULL;
   } else if (ret == GS_UNSUPPORTED_VERSION) {
     if (!config.unsupported_version) {
-      display_error("Unsupported version: %s\n", gs_error);
+			display_error("Unsupported version: %s\n", gs_error);
       return NULL;
     }
   } else if (ret == GS_ERROR) {
-    display_error("Gamestream error: %s\n", gs_error);
+		display_error("Gamestream error: %s\n", gs_error);
     return NULL;
   } else if (ret != GS_OK) {
-    display_error("Can't connect to server\n%s", info->internal);
+		display_error("Can't connect to server\n%s", info->internal);
     return NULL;
   }
 
@@ -397,7 +398,7 @@ device_info_t* ui_connect_and_pairing(device_info_t *info) {
 
   device_info_t *p = append_device(info);
   if (p == NULL) {
-    display_error("Can't add device list\n%s", info->name);
+		display_error("Can't add device list\n%s", info->name);
     return NULL;
   }
 
@@ -414,11 +415,11 @@ device_info_t* ui_connect_and_pairing(device_info_t *info) {
   char message[256];
   sprintf(pin, "%d%d%d%d",
           (int)rand() % 10, (int)rand() % 10, (int)rand() % 10, (int)rand() % 10);
-  flash_message("Please enter the following PIN\non the target PC:\n\n%s", pin);
+	flash_message("Please enter the following PIN\non the target PC:\n\n%s", pin);
 
   ret = gs_pair(&server, pin);
   if (ret != GS_OK) {
-    display_error("Pairing failed: %d", ret);
+		display_error("Pairing failed: %d", ret);
     connection_terminate();
     return NULL;
   }
@@ -430,7 +431,7 @@ paired:
   save_device_info(info);
 
   if (connection_terminate()) {
-    display_error("Reconnect failed: %d", -2);
+		display_error("Reconnect failed: %d", -2);
     return info;
   }
 
@@ -466,13 +467,14 @@ bool check_connection(const char *name, char *addr) {
   if (gs_init(&server, addr, key_dir, 0, true) != GS_OK) {
     return false;
   }
+
   connection_terminate();
   return true;
 }
 
 void ui_connect_paired_device(device_info_t *info) {
   if (!info->paired) {
-    display_error("Unpaired device\n%s", info->name);
+		display_error("Unpaired device\n%s", info->name);
     return;
   }
 
@@ -488,7 +490,7 @@ void ui_connect_paired_device(device_info_t *info) {
   save_device_info(info);
 
   if (addr == NULL) {
-    display_error("Can't connect to server\n%s", info->name);
+		display_error("Can't connect to server\n%s", info->name);
     return;
   }
 

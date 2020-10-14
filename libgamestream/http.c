@@ -24,8 +24,9 @@
 #include <string.h>
 #include <curl/curl.h>
 
+#include <psp2/kernel/clib.h>
+
 #include <psp2/sysmodule.h>
-#include "../src/graphics.h"
 
 static CURL *curl;
 
@@ -43,7 +44,7 @@ static size_t _write_curl(void *contents, size_t size, size_t nmemb, void *userp
   if(mem->memory == NULL)
     return 0;
 
-  memcpy(&(mem->memory[mem->size]), contents, realsize);
+  sceClibMemcpy(&(mem->memory[mem->size]), contents, realsize);
   mem->size += realsize;
   mem->memory[mem->size] = 0;
 
@@ -86,9 +87,9 @@ int http_request(char* url, PHTTP_DATA data) {
   curl_easy_setopt(curl, CURLOPT_URL, url);
 
   char url_tiny[48] = {0};
-  strncpy(url_tiny, url, sizeof(url_tiny) - 1);
+  sceClibStrncpy(url_tiny, url, sizeof(url_tiny) - 1);
   if (debug)
-    printf("GET %s\n", url_tiny);
+    sceClibPrintf("GET %s\n", url_tiny);
 
   if (data->size > 0) {
     free(data->memory);
@@ -108,7 +109,7 @@ int http_request(char* url, PHTTP_DATA data) {
   }
 
   if (debug)
-    printf("Response:\n%s\n\n", data->memory);
+    sceClibPrintf("Response:\n%s\n\n", data->memory);
 
   return GS_OK;
 }

@@ -1,5 +1,7 @@
 #include "util.h"
 
+#include <psp2/kernel/clib.h>
+
 #include<string.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -31,7 +33,7 @@ void sort_app_list(PAPP_LIST list) {
         cur = list;
 
         while (cur->next != prev) {
-            if (strcmp(cur->name, cur->next->name) > 0) {
+            if (sceClibStrcmp(cur->name, cur->next->name) > 0) {
                 swap_app_list_entries(cur, cur->next);
                 swapped = 1;
             }

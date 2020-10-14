@@ -24,6 +24,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+typedef enum MoonlightVitaStateEVF {
+	FLAG_MOONLIGHT_IS_FG = 1,
+	FLAG_MOONLIGHT_ACTIVE_VIDEO_THREAD = 2,
+	FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD = 4,
+	FLAG_MOONLIGHT_ACTIVE_INPUT_THREAD = 8,
+	FLAG_MOONLIGHT_ACTIVE_PACER_THREAD = 16,
+	FLAG_MOONLIGHT_ACTIVE_POWER_THREAD = 32,
+	FLAG_MOONLIGHT_IS_IME = 64
+} MoonlightVitaStateEVF;
+
 enum platform { VITA };
 
 enum platform platform_check(char*);

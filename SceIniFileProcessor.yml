@@ -1,0 +1,26 @@
+version: 0x2
+firmware: 3.60
+modules:
+  SceIniFileProcessor:
+    nid: 0x8C611E4E
+    libraries:
+      SceIniFileProcessor:
+        nid: 0x5EE28724
+        kernel: false
+        functions:
+          sceIniFileProcessorCreateInstance: 0x0975D396
+          sceIniFileProcessorInitializeParam: 0x14146AF5
+          sceIniFileProcessorDestroyInstance: 0x2BEF7391
+          sceIniFileProcessorDestroyInstanceForError: 0x48A6BDCB
+          sceIniFileProcessorOpenFile: 0x51B791E8
+          sceIniFileProcessorAddKey: 0x703E1BAE
+          sceIniFileProcessorFindValueByKey: 0x7F22CED1
+          sceIniFileProcessorCreateContext: 0xA0F71A2C
+          sceIniFileProcessorCleanup: 0xA51840C7
+          sceIniFileProcessorDestroyContext: 0xACEB88BD
+          sceIniFileProcessorDeleteKey: 0xC2B3A41C
+          sceIniFileProcessorParse: 0xD5C7B3EE
+          sceIniFileProcessorGetKeyNum: 0xD7648B61
+          sceIniFileProcessorSetValueForKey: 0xDBC5F9A8
+          sceIniFileProcessorCloseFile: 0xEDFAD6B4
+          sceIniFileProcessorCreateFile: 0xFD8DE2F8
