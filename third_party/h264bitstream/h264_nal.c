@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <psp2/kernel/clib.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -82,6 +82,7 @@
 #endif
 #if defined(__vita__)
 #include <psp2/kernel/rng.h>
+#include <psp2/kernel/clib.h>
 #endif
 
 #include "uuidP.h"
@@ -165,7 +166,7 @@ static int get_node_id(unsigned char *node_id)
 	if (sd < 0) {
 		return -1;
 	}
-	memset(buf, 0, sizeof(buf));
+	sceClibMemset(buf, 0, sizeof(buf));
 	ifc.ifc_len = sizeof(buf);
 	ifc.ifc_buf = buf;
 	if (ioctl (sd, SIOCGIFCONF, (char *)&ifc) < 0) {
@@ -175,7 +176,7 @@ static int get_node_id(unsigned char *node_id)
 	n = ifc.ifc_len;
 	for (i = 0; i < n; i+= ifreq_size(*ifrp) ) {
 		ifrp = (struct ifreq *)((char *) ifc.ifc_buf+i);
-		strncpy(ifr.ifr_name, ifrp->ifr_name, IFNAMSIZ);
+		sceClibStrncpy(ifr.ifr_name, ifrp->ifr_name, IFNAMSIZ);
 #ifdef SIOCGIFHWADDR
 		if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0)
 			continue;
@@ -204,7 +205,7 @@ static int get_node_id(unsigned char *node_id)
 		if (!a[0] && !a[1] && !a[2] && !a[3] && !a[4] && !a[5])
 			continue;
 		if (node_id) {
-			memcpy(node_id, a, 6);
+			sceClibMemcpy(node_id, a, 6);
 			close(sd);
 			return 1;
 		}
@@ -352,7 +353,7 @@ static int get_uuid_via_daemon(int op, uuid_t out, int *num)
 		return -1;
 
 	srv_addr.sun_family = AF_UNIX;
-	xstrncpy(srv_addr.sun_path, UUIDD_SOCKET_PATH, sizeof(srv_addr.sun_path));
+	xsceClibStrncpy(srv_addr.sun_path, UUIDD_SOCKET_PATH, sizeof(srv_addr.sun_path));
 
 	if (connect(s, (const struct sockaddr *) &srv_addr,
 		    sizeof(struct sockaddr_un)) < 0)
@@ -361,7 +362,7 @@ static int get_uuid_via_daemon(int op, uuid_t out, int *num)
 	op_buf[0] = op;
 	op_len = 1;
 	if (op == UUIDD_OP_BULK_TIME_UUID) {
-		memcpy(op_buf+1, num, sizeof(*num));
+		sceClibMemcpy(op_buf+1, num, sizeof(*num));
 		op_len += sizeof(*num);
 		expected += sizeof(*num);
 	}
@@ -380,9 +381,9 @@ static int get_uuid_via_daemon(int op, uuid_t out, int *num)
 	ret = read_all(s, op_buf, reply_len);
 
 	if (op == UUIDD_OP_BULK_TIME_UUID)
-		memcpy(op_buf+16, num, sizeof(int));
+		sceClibMemcpy(op_buf+16, num, sizeof(int));
 
-	memcpy(out, op_buf, 16);
+	sceClibMemcpy(out, op_buf, 16);
 
 	close(s);
 	return ((ret == expected) ? 0 : -1);
@@ -423,7 +424,7 @@ int __uuid_generate_time(uuid_t out, int *num)
 	uu.clock_seq |= 0x8000;
 	uu.time_mid = (uint16_t) clock_mid;
 	uu.time_hi_and_version = ((clock_mid >> 16) & 0x0FFF) | 0x1000;
-	memcpy(uu.node, node_id, 6);
+	sceClibMemcpy(uu.node, node_id, 6);
 	uuid_pack(&uu, out);
 	return ret;
 }

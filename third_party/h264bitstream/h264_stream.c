@@ -22,6 +22,8 @@
  */
 
 
+#include <psp2/kernel/clib.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,7 +34,7 @@
 
 FILE* h264_dbgfile = NULL;
 
-#define printf(...) fprintf((h264_dbgfile == NULL ? stdout : h264_dbgfile), __VA_ARGS__)
+#define sceClibPrintf(...) fprintf((h264_dbgfile == NULL ? stdout : h264_dbgfile), __VA_ARGS__)
 
 /**
  Calculate the log base 2 of the argument, rounded up.
@@ -119,10 +121,10 @@ void debug_bytes(uint8_t* buf, int len)
     int i;
     for (i = 0; i < len; i++)
     {
-        printf("%02X ", buf[i]);
+        sceClibPrintf("%02X ", buf[i]);
         if ((i+1) % 16 == 0) { printf ("\n"); }
     }
-    printf("\n");
+    sceClibPrintf("\n");
 }
 
 
@@ -245,7 +247,7 @@ void read_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     sps_t* sps = h->sps;
     if( 1 )
     {
-        memset(sps, 0, sizeof(sps_t));
+		sceClibMemset(sps, 0, sizeof(sps_t));
         sps->chroma_format_idc = 1;
     }
 
@@ -337,7 +339,7 @@ void read_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( 1 )
     {
-        memcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+        sceClibMemcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
     }
 }
 
@@ -495,7 +497,7 @@ void read_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     pps_t* pps = h->pps;
     if( 1 )
     {
-        memset(pps, 0, sizeof(pps_t));
+		sceClibMemset(pps, 0, sizeof(pps_t));
     }
 
     pps->pic_parameter_set_id = bs_read_ue(b);
@@ -587,7 +589,7 @@ void read_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( 1 )
     {
-        memcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
+        sceClibMemcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
     }
 }
 
@@ -683,7 +685,7 @@ void read_slice_layer_rbsp(h264_stream_t* h,  bs_t* b)
         slice_data->rbsp_size = b->end - sptr;
 
         slice_data->rbsp_buf = (uint8_t*)malloc(slice_data->rbsp_size);
-        memcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
+        sceClibMemcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
         // ugly hack: since next NALU starts at byte border, we are going to be padded by trailing_bits;
         return;
     }
@@ -752,7 +754,7 @@ void read_slice_header(h264_stream_t* h, bs_t* b)
     slice_header_t* sh = h->sh;
     if( 1 )
     {
-        memset(sh, 0, sizeof(slice_header_t));
+		sceClibMemset(sh, 0, sizeof(slice_header_t));
     }
 
     nal_t* nal = h->nal;
@@ -764,8 +766,8 @@ void read_slice_header(h264_stream_t* h, bs_t* b)
     // TODO check existence, otherwise fail
     pps_t* pps = h->pps;
     sps_t* sps = h->sps;
-    memcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
-    memcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+    sceClibMemcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
+    sceClibMemcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
 
     sh->frame_num = bs_read_u(b, sps->log2_max_frame_num_minus4 + 4 ); // was u(v)
     if( !sps->frame_mbs_only_flag )
@@ -1132,7 +1134,7 @@ void write_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     sps_t* sps = h->sps;
     if( 0 )
     {
-        memset(sps, 0, sizeof(sps_t));
+		sceClibMemset(sps, 0, sizeof(sps_t));
         sps->chroma_format_idc = 1;
     }
 
@@ -1224,7 +1226,7 @@ void write_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( 0 )
     {
-        memcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+        sceClibMemcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
     }
 }
 
@@ -1382,7 +1384,7 @@ void write_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     pps_t* pps = h->pps;
     if( 0 )
     {
-        memset(pps, 0, sizeof(pps_t));
+		sceClibMemset(pps, 0, sizeof(pps_t));
     }
 
     bs_write_ue(b, pps->pic_parameter_set_id);
@@ -1474,7 +1476,7 @@ void write_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( 0 )
     {
-        memcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
+        sceClibMemcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
     }
 }
 
@@ -1570,7 +1572,7 @@ void write_slice_layer_rbsp(h264_stream_t* h,  bs_t* b)
         slice_data->rbsp_size = b->end - sptr;
 
         slice_data->rbsp_buf = (uint8_t*)malloc(slice_data->rbsp_size);
-        memcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
+        sceClibMemcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
         // ugly hack: since next NALU starts at byte border, we are going to be padded by trailing_bits;
         return;
     }
@@ -1639,7 +1641,7 @@ void write_slice_header(h264_stream_t* h, bs_t* b)
     slice_header_t* sh = h->sh;
     if( 0 )
     {
-        memset(sh, 0, sizeof(slice_header_t));
+		sceClibMemset(sh, 0, sizeof(slice_header_t));
     }
 
     nal_t* nal = h->nal;
@@ -1651,8 +1653,8 @@ void write_slice_header(h264_stream_t* h, bs_t* b)
     // TODO check existence, otherwise fail
     pps_t* pps = h->pps;
     sps_t* sps = h->sps;
-    memcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
-    memcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+    sceClibMemcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
+    sceClibMemcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
 
     bs_write_u(b, sps->log2_max_frame_num_minus4 + 4 , sh->frame_num); // was u(v)
     if( !sps->frame_mbs_only_flag )
@@ -1944,9 +1946,9 @@ int read_debug_nal_unit(h264_stream_t* h, uint8_t* buf, int size)
     }
 
     bs_t* b = bs_new(rbsp_buf, rbsp_size);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); int forbidden_zero_bit = bs_read_u(b, 1); printf("forbidden_zero_bit: %d \n", forbidden_zero_bit);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); nal->nal_ref_idc = bs_read_u(b, 2); printf("nal->nal_ref_idc: %d \n", nal->nal_ref_idc);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); nal->nal_unit_type = bs_read_u(b, 5); printf("nal->nal_unit_type: %d \n", nal->nal_unit_type);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int forbidden_zero_bit = bs_read_u(b, 1); sceClibPrintf("forbidden_zero_bit: %d \n", forbidden_zero_bit);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); nal->nal_ref_idc = bs_read_u(b, 2); sceClibPrintf("nal->nal_ref_idc: %d \n", nal->nal_ref_idc);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); nal->nal_unit_type = bs_read_u(b, 5); sceClibPrintf("nal->nal_unit_type: %d \n", nal->nal_unit_type);
 
     switch ( nal->nal_unit_type )
     {
@@ -2019,38 +2021,38 @@ void read_debug_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     sps_t* sps = h->sps;
     if( 1 )
     {
-        memset(sps, 0, sizeof(sps_t));
+        sceClibMemset(sps, 0, sizeof(sps_t));
         sps->chroma_format_idc = 1;
     }
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->profile_idc = bs_read_u8(b); printf("sps->profile_idc: %d \n", sps->profile_idc);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set0_flag = bs_read_u1(b); printf("sps->constraint_set0_flag: %d \n", sps->constraint_set0_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set1_flag = bs_read_u1(b); printf("sps->constraint_set1_flag: %d \n", sps->constraint_set1_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set2_flag = bs_read_u1(b); printf("sps->constraint_set2_flag: %d \n", sps->constraint_set2_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set3_flag = bs_read_u1(b); printf("sps->constraint_set3_flag: %d \n", sps->constraint_set3_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set4_flag = bs_read_u1(b); printf("sps->constraint_set4_flag: %d \n", sps->constraint_set4_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set5_flag = bs_read_u1(b); printf("sps->constraint_set5_flag: %d \n", sps->constraint_set5_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); int reserved_zero_2bits = bs_read_u(b, 2); printf("reserved_zero_2bits: %d \n", reserved_zero_2bits);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->level_idc = bs_read_u8(b); printf("sps->level_idc: %d \n", sps->level_idc);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_parameter_set_id = bs_read_ue(b); printf("sps->seq_parameter_set_id: %d \n", sps->seq_parameter_set_id);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->profile_idc = bs_read_u8(b); sceClibPrintf("sps->profile_idc: %d \n", sps->profile_idc);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set0_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set0_flag: %d \n", sps->constraint_set0_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set1_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set1_flag: %d \n", sps->constraint_set1_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set2_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set2_flag: %d \n", sps->constraint_set2_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set3_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set3_flag: %d \n", sps->constraint_set3_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set4_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set4_flag: %d \n", sps->constraint_set4_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->constraint_set5_flag = bs_read_u1(b); sceClibPrintf("sps->constraint_set5_flag: %d \n", sps->constraint_set5_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int reserved_zero_2bits = bs_read_u(b, 2); sceClibPrintf("reserved_zero_2bits: %d \n", reserved_zero_2bits);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->level_idc = bs_read_u8(b); sceClibPrintf("sps->level_idc: %d \n", sps->level_idc);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_parameter_set_id = bs_read_ue(b); sceClibPrintf("sps->seq_parameter_set_id: %d \n", sps->seq_parameter_set_id);
 
     if( sps->profile_idc == 100 || sps->profile_idc == 110 ||
         sps->profile_idc == 122 || sps->profile_idc == 144 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->chroma_format_idc = bs_read_ue(b); printf("sps->chroma_format_idc: %d \n", sps->chroma_format_idc);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->chroma_format_idc = bs_read_ue(b); sceClibPrintf("sps->chroma_format_idc: %d \n", sps->chroma_format_idc);
         if( sps->chroma_format_idc == 3 )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->residual_colour_transform_flag = bs_read_u1(b); printf("sps->residual_colour_transform_flag: %d \n", sps->residual_colour_transform_flag);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->residual_colour_transform_flag = bs_read_u1(b); sceClibPrintf("sps->residual_colour_transform_flag: %d \n", sps->residual_colour_transform_flag);
         }
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->bit_depth_luma_minus8 = bs_read_ue(b); printf("sps->bit_depth_luma_minus8: %d \n", sps->bit_depth_luma_minus8);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->bit_depth_chroma_minus8 = bs_read_ue(b); printf("sps->bit_depth_chroma_minus8: %d \n", sps->bit_depth_chroma_minus8);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->qpprime_y_zero_transform_bypass_flag = bs_read_u1(b); printf("sps->qpprime_y_zero_transform_bypass_flag: %d \n", sps->qpprime_y_zero_transform_bypass_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_scaling_matrix_present_flag = bs_read_u1(b); printf("sps->seq_scaling_matrix_present_flag: %d \n", sps->seq_scaling_matrix_present_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->bit_depth_luma_minus8 = bs_read_ue(b); sceClibPrintf("sps->bit_depth_luma_minus8: %d \n", sps->bit_depth_luma_minus8);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->bit_depth_chroma_minus8 = bs_read_ue(b); sceClibPrintf("sps->bit_depth_chroma_minus8: %d \n", sps->bit_depth_chroma_minus8);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->qpprime_y_zero_transform_bypass_flag = bs_read_u1(b); sceClibPrintf("sps->qpprime_y_zero_transform_bypass_flag: %d \n", sps->qpprime_y_zero_transform_bypass_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_scaling_matrix_present_flag = bs_read_u1(b); sceClibPrintf("sps->seq_scaling_matrix_present_flag: %d \n", sps->seq_scaling_matrix_present_flag);
         if( sps->seq_scaling_matrix_present_flag )
         {
             for( i = 0; i < 8; i++ )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_scaling_list_present_flag[ i ] = bs_read_u1(b); printf("sps->seq_scaling_list_present_flag[ i ]: %d \n", sps->seq_scaling_list_present_flag[ i ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->seq_scaling_list_present_flag[ i ] = bs_read_u1(b); sceClibPrintf("sps->seq_scaling_list_present_flag[ i ]: %d \n", sps->seq_scaling_list_present_flag[ i ]);
                 if( sps->seq_scaling_list_present_flag[ i ] )
                 {
                     if( i < 6 )
@@ -2067,42 +2069,42 @@ void read_debug_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
             }
         }
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->log2_max_frame_num_minus4 = bs_read_ue(b); printf("sps->log2_max_frame_num_minus4: %d \n", sps->log2_max_frame_num_minus4);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_order_cnt_type = bs_read_ue(b); printf("sps->pic_order_cnt_type: %d \n", sps->pic_order_cnt_type);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->log2_max_frame_num_minus4 = bs_read_ue(b); sceClibPrintf("sps->log2_max_frame_num_minus4: %d \n", sps->log2_max_frame_num_minus4);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_order_cnt_type = bs_read_ue(b); sceClibPrintf("sps->pic_order_cnt_type: %d \n", sps->pic_order_cnt_type);
     if( sps->pic_order_cnt_type == 0 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->log2_max_pic_order_cnt_lsb_minus4 = bs_read_ue(b); printf("sps->log2_max_pic_order_cnt_lsb_minus4: %d \n", sps->log2_max_pic_order_cnt_lsb_minus4);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->log2_max_pic_order_cnt_lsb_minus4 = bs_read_ue(b); sceClibPrintf("sps->log2_max_pic_order_cnt_lsb_minus4: %d \n", sps->log2_max_pic_order_cnt_lsb_minus4);
     }
     else if( sps->pic_order_cnt_type == 1 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->delta_pic_order_always_zero_flag = bs_read_u1(b); printf("sps->delta_pic_order_always_zero_flag: %d \n", sps->delta_pic_order_always_zero_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_non_ref_pic = bs_read_se(b); printf("sps->offset_for_non_ref_pic: %d \n", sps->offset_for_non_ref_pic);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_top_to_bottom_field = bs_read_se(b); printf("sps->offset_for_top_to_bottom_field: %d \n", sps->offset_for_top_to_bottom_field);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->num_ref_frames_in_pic_order_cnt_cycle = bs_read_ue(b); printf("sps->num_ref_frames_in_pic_order_cnt_cycle: %d \n", sps->num_ref_frames_in_pic_order_cnt_cycle);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->delta_pic_order_always_zero_flag = bs_read_u1(b); sceClibPrintf("sps->delta_pic_order_always_zero_flag: %d \n", sps->delta_pic_order_always_zero_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_non_ref_pic = bs_read_se(b); sceClibPrintf("sps->offset_for_non_ref_pic: %d \n", sps->offset_for_non_ref_pic);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_top_to_bottom_field = bs_read_se(b); sceClibPrintf("sps->offset_for_top_to_bottom_field: %d \n", sps->offset_for_top_to_bottom_field);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->num_ref_frames_in_pic_order_cnt_cycle = bs_read_ue(b); sceClibPrintf("sps->num_ref_frames_in_pic_order_cnt_cycle: %d \n", sps->num_ref_frames_in_pic_order_cnt_cycle);
         for( i = 0; i < sps->num_ref_frames_in_pic_order_cnt_cycle; i++ )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_ref_frame[ i ] = bs_read_se(b); printf("sps->offset_for_ref_frame[ i ]: %d \n", sps->offset_for_ref_frame[ i ]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->offset_for_ref_frame[ i ] = bs_read_se(b); sceClibPrintf("sps->offset_for_ref_frame[ i ]: %d \n", sps->offset_for_ref_frame[ i ]);
         }
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->num_ref_frames = bs_read_ue(b); printf("sps->num_ref_frames: %d \n", sps->num_ref_frames);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->gaps_in_frame_num_value_allowed_flag = bs_read_u1(b); printf("sps->gaps_in_frame_num_value_allowed_flag: %d \n", sps->gaps_in_frame_num_value_allowed_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_width_in_mbs_minus1 = bs_read_ue(b); printf("sps->pic_width_in_mbs_minus1: %d \n", sps->pic_width_in_mbs_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_height_in_map_units_minus1 = bs_read_ue(b); printf("sps->pic_height_in_map_units_minus1: %d \n", sps->pic_height_in_map_units_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_mbs_only_flag = bs_read_u1(b); printf("sps->frame_mbs_only_flag: %d \n", sps->frame_mbs_only_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->num_ref_frames = bs_read_ue(b); sceClibPrintf("sps->num_ref_frames: %d \n", sps->num_ref_frames);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->gaps_in_frame_num_value_allowed_flag = bs_read_u1(b); sceClibPrintf("sps->gaps_in_frame_num_value_allowed_flag: %d \n", sps->gaps_in_frame_num_value_allowed_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_width_in_mbs_minus1 = bs_read_ue(b); sceClibPrintf("sps->pic_width_in_mbs_minus1: %d \n", sps->pic_width_in_mbs_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->pic_height_in_map_units_minus1 = bs_read_ue(b); sceClibPrintf("sps->pic_height_in_map_units_minus1: %d \n", sps->pic_height_in_map_units_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_mbs_only_flag = bs_read_u1(b); sceClibPrintf("sps->frame_mbs_only_flag: %d \n", sps->frame_mbs_only_flag);
     if( !sps->frame_mbs_only_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->mb_adaptive_frame_field_flag = bs_read_u1(b); printf("sps->mb_adaptive_frame_field_flag: %d \n", sps->mb_adaptive_frame_field_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->mb_adaptive_frame_field_flag = bs_read_u1(b); sceClibPrintf("sps->mb_adaptive_frame_field_flag: %d \n", sps->mb_adaptive_frame_field_flag);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->direct_8x8_inference_flag = bs_read_u1(b); printf("sps->direct_8x8_inference_flag: %d \n", sps->direct_8x8_inference_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_cropping_flag = bs_read_u1(b); printf("sps->frame_cropping_flag: %d \n", sps->frame_cropping_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->direct_8x8_inference_flag = bs_read_u1(b); sceClibPrintf("sps->direct_8x8_inference_flag: %d \n", sps->direct_8x8_inference_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_cropping_flag = bs_read_u1(b); sceClibPrintf("sps->frame_cropping_flag: %d \n", sps->frame_cropping_flag);
     if( sps->frame_cropping_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_left_offset = bs_read_ue(b); printf("sps->frame_crop_left_offset: %d \n", sps->frame_crop_left_offset);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_right_offset = bs_read_ue(b); printf("sps->frame_crop_right_offset: %d \n", sps->frame_crop_right_offset);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_top_offset = bs_read_ue(b); printf("sps->frame_crop_top_offset: %d \n", sps->frame_crop_top_offset);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_bottom_offset = bs_read_ue(b); printf("sps->frame_crop_bottom_offset: %d \n", sps->frame_crop_bottom_offset);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_left_offset = bs_read_ue(b); sceClibPrintf("sps->frame_crop_left_offset: %d \n", sps->frame_crop_left_offset);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_right_offset = bs_read_ue(b); sceClibPrintf("sps->frame_crop_right_offset: %d \n", sps->frame_crop_right_offset);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_top_offset = bs_read_ue(b); sceClibPrintf("sps->frame_crop_top_offset: %d \n", sps->frame_crop_top_offset);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->frame_crop_bottom_offset = bs_read_ue(b); sceClibPrintf("sps->frame_crop_bottom_offset: %d \n", sps->frame_crop_bottom_offset);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui_parameters_present_flag = bs_read_u1(b); printf("sps->vui_parameters_present_flag: %d \n", sps->vui_parameters_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui_parameters_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui_parameters_present_flag: %d \n", sps->vui_parameters_present_flag);
     if( sps->vui_parameters_present_flag )
     {
         read_debug_vui_parameters(h, b);
@@ -2111,7 +2113,7 @@ void read_debug_seq_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( 1 )
     {
-        memcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+        sceClibMemcpy(h->sps_table[sps->seq_parameter_set_id], h->sps, sizeof(sps_t));
     }
 }
 
@@ -2134,7 +2136,7 @@ void read_debug_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, i
                 delta_scale = (nextScale - lastScale) % 256 ;
             }
 
-            printf("%d.%d: ", b->p - b->start, b->bits_left); delta_scale = bs_read_se(b); printf("delta_scale: %d \n", delta_scale);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); delta_scale = bs_read_se(b); sceClibPrintf("delta_scale: %d \n", delta_scale);
 
             if( 1 )
             {
@@ -2155,72 +2157,72 @@ void read_debug_vui_parameters(h264_stream_t* h, bs_t* b)
 {
     sps_t* sps = h->sps;
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.aspect_ratio_info_present_flag = bs_read_u1(b); printf("sps->vui.aspect_ratio_info_present_flag: %d \n", sps->vui.aspect_ratio_info_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.aspect_ratio_info_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.aspect_ratio_info_present_flag: %d \n", sps->vui.aspect_ratio_info_present_flag);
     if( sps->vui.aspect_ratio_info_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.aspect_ratio_idc = bs_read_u8(b); printf("sps->vui.aspect_ratio_idc: %d \n", sps->vui.aspect_ratio_idc);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.aspect_ratio_idc = bs_read_u8(b); sceClibPrintf("sps->vui.aspect_ratio_idc: %d \n", sps->vui.aspect_ratio_idc);
         if( sps->vui.aspect_ratio_idc == SAR_Extended )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.sar_width = bs_read_u(b, 16); printf("sps->vui.sar_width: %d \n", sps->vui.sar_width);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.sar_height = bs_read_u(b, 16); printf("sps->vui.sar_height: %d \n", sps->vui.sar_height);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.sar_width = bs_read_u(b, 16); sceClibPrintf("sps->vui.sar_width: %d \n", sps->vui.sar_width);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.sar_height = bs_read_u(b, 16); sceClibPrintf("sps->vui.sar_height: %d \n", sps->vui.sar_height);
         }
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.overscan_info_present_flag = bs_read_u1(b); printf("sps->vui.overscan_info_present_flag: %d \n", sps->vui.overscan_info_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.overscan_info_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.overscan_info_present_flag: %d \n", sps->vui.overscan_info_present_flag);
     if( sps->vui.overscan_info_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.overscan_appropriate_flag = bs_read_u1(b); printf("sps->vui.overscan_appropriate_flag: %d \n", sps->vui.overscan_appropriate_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.overscan_appropriate_flag = bs_read_u1(b); sceClibPrintf("sps->vui.overscan_appropriate_flag: %d \n", sps->vui.overscan_appropriate_flag);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_signal_type_present_flag = bs_read_u1(b); printf("sps->vui.video_signal_type_present_flag: %d \n", sps->vui.video_signal_type_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_signal_type_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.video_signal_type_present_flag: %d \n", sps->vui.video_signal_type_present_flag);
     if( sps->vui.video_signal_type_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_format = bs_read_u(b, 3); printf("sps->vui.video_format: %d \n", sps->vui.video_format);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_full_range_flag = bs_read_u1(b); printf("sps->vui.video_full_range_flag: %d \n", sps->vui.video_full_range_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.colour_description_present_flag = bs_read_u1(b); printf("sps->vui.colour_description_present_flag: %d \n", sps->vui.colour_description_present_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_format = bs_read_u(b, 3); sceClibPrintf("sps->vui.video_format: %d \n", sps->vui.video_format);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.video_full_range_flag = bs_read_u1(b); sceClibPrintf("sps->vui.video_full_range_flag: %d \n", sps->vui.video_full_range_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.colour_description_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.colour_description_present_flag: %d \n", sps->vui.colour_description_present_flag);
         if( sps->vui.colour_description_present_flag )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.colour_primaries = bs_read_u8(b); printf("sps->vui.colour_primaries: %d \n", sps->vui.colour_primaries);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.transfer_characteristics = bs_read_u8(b); printf("sps->vui.transfer_characteristics: %d \n", sps->vui.transfer_characteristics);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.matrix_coefficients = bs_read_u8(b); printf("sps->vui.matrix_coefficients: %d \n", sps->vui.matrix_coefficients);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.colour_primaries = bs_read_u8(b); sceClibPrintf("sps->vui.colour_primaries: %d \n", sps->vui.colour_primaries);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.transfer_characteristics = bs_read_u8(b); sceClibPrintf("sps->vui.transfer_characteristics: %d \n", sps->vui.transfer_characteristics);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.matrix_coefficients = bs_read_u8(b); sceClibPrintf("sps->vui.matrix_coefficients: %d \n", sps->vui.matrix_coefficients);
         }
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_loc_info_present_flag = bs_read_u1(b); printf("sps->vui.chroma_loc_info_present_flag: %d \n", sps->vui.chroma_loc_info_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_loc_info_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.chroma_loc_info_present_flag: %d \n", sps->vui.chroma_loc_info_present_flag);
     if( sps->vui.chroma_loc_info_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_sample_loc_type_top_field = bs_read_ue(b); printf("sps->vui.chroma_sample_loc_type_top_field: %d \n", sps->vui.chroma_sample_loc_type_top_field);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_sample_loc_type_bottom_field = bs_read_ue(b); printf("sps->vui.chroma_sample_loc_type_bottom_field: %d \n", sps->vui.chroma_sample_loc_type_bottom_field);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_sample_loc_type_top_field = bs_read_ue(b); sceClibPrintf("sps->vui.chroma_sample_loc_type_top_field: %d \n", sps->vui.chroma_sample_loc_type_top_field);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.chroma_sample_loc_type_bottom_field = bs_read_ue(b); sceClibPrintf("sps->vui.chroma_sample_loc_type_bottom_field: %d \n", sps->vui.chroma_sample_loc_type_bottom_field);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.timing_info_present_flag = bs_read_u1(b); printf("sps->vui.timing_info_present_flag: %d \n", sps->vui.timing_info_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.timing_info_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.timing_info_present_flag: %d \n", sps->vui.timing_info_present_flag);
     if( sps->vui.timing_info_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.num_units_in_tick = bs_read_u(b, 32); printf("sps->vui.num_units_in_tick: %d \n", sps->vui.num_units_in_tick);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.time_scale = bs_read_u(b, 32); printf("sps->vui.time_scale: %d \n", sps->vui.time_scale);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.fixed_frame_rate_flag = bs_read_u1(b); printf("sps->vui.fixed_frame_rate_flag: %d \n", sps->vui.fixed_frame_rate_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.num_units_in_tick = bs_read_u(b, 32); sceClibPrintf("sps->vui.num_units_in_tick: %d \n", sps->vui.num_units_in_tick);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.time_scale = bs_read_u(b, 32); sceClibPrintf("sps->vui.time_scale: %d \n", sps->vui.time_scale);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.fixed_frame_rate_flag = bs_read_u1(b); sceClibPrintf("sps->vui.fixed_frame_rate_flag: %d \n", sps->vui.fixed_frame_rate_flag);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.nal_hrd_parameters_present_flag = bs_read_u1(b); printf("sps->vui.nal_hrd_parameters_present_flag: %d \n", sps->vui.nal_hrd_parameters_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.nal_hrd_parameters_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.nal_hrd_parameters_present_flag: %d \n", sps->vui.nal_hrd_parameters_present_flag);
     if( sps->vui.nal_hrd_parameters_present_flag )
     {
         read_debug_hrd_parameters(h, b);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.vcl_hrd_parameters_present_flag = bs_read_u1(b); printf("sps->vui.vcl_hrd_parameters_present_flag: %d \n", sps->vui.vcl_hrd_parameters_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.vcl_hrd_parameters_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.vcl_hrd_parameters_present_flag: %d \n", sps->vui.vcl_hrd_parameters_present_flag);
     if( sps->vui.vcl_hrd_parameters_present_flag )
     {
         read_debug_hrd_parameters(h, b);
     }
     if( sps->vui.nal_hrd_parameters_present_flag || sps->vui.vcl_hrd_parameters_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.low_delay_hrd_flag = bs_read_u1(b); printf("sps->vui.low_delay_hrd_flag: %d \n", sps->vui.low_delay_hrd_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.low_delay_hrd_flag = bs_read_u1(b); sceClibPrintf("sps->vui.low_delay_hrd_flag: %d \n", sps->vui.low_delay_hrd_flag);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.pic_struct_present_flag = bs_read_u1(b); printf("sps->vui.pic_struct_present_flag: %d \n", sps->vui.pic_struct_present_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.bitstream_restriction_flag = bs_read_u1(b); printf("sps->vui.bitstream_restriction_flag: %d \n", sps->vui.bitstream_restriction_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.pic_struct_present_flag = bs_read_u1(b); sceClibPrintf("sps->vui.pic_struct_present_flag: %d \n", sps->vui.pic_struct_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.bitstream_restriction_flag = bs_read_u1(b); sceClibPrintf("sps->vui.bitstream_restriction_flag: %d \n", sps->vui.bitstream_restriction_flag);
     if( sps->vui.bitstream_restriction_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.motion_vectors_over_pic_boundaries_flag = bs_read_u1(b); printf("sps->vui.motion_vectors_over_pic_boundaries_flag: %d \n", sps->vui.motion_vectors_over_pic_boundaries_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_bytes_per_pic_denom = bs_read_ue(b); printf("sps->vui.max_bytes_per_pic_denom: %d \n", sps->vui.max_bytes_per_pic_denom);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_bits_per_mb_denom = bs_read_ue(b); printf("sps->vui.max_bits_per_mb_denom: %d \n", sps->vui.max_bits_per_mb_denom);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.log2_max_mv_length_horizontal = bs_read_ue(b); printf("sps->vui.log2_max_mv_length_horizontal: %d \n", sps->vui.log2_max_mv_length_horizontal);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.log2_max_mv_length_vertical = bs_read_ue(b); printf("sps->vui.log2_max_mv_length_vertical: %d \n", sps->vui.log2_max_mv_length_vertical);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.num_reorder_frames = bs_read_ue(b); printf("sps->vui.num_reorder_frames: %d \n", sps->vui.num_reorder_frames);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_dec_frame_buffering = bs_read_ue(b); printf("sps->vui.max_dec_frame_buffering: %d \n", sps->vui.max_dec_frame_buffering);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.motion_vectors_over_pic_boundaries_flag = bs_read_u1(b); sceClibPrintf("sps->vui.motion_vectors_over_pic_boundaries_flag: %d \n", sps->vui.motion_vectors_over_pic_boundaries_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_bytes_per_pic_denom = bs_read_ue(b); sceClibPrintf("sps->vui.max_bytes_per_pic_denom: %d \n", sps->vui.max_bytes_per_pic_denom);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_bits_per_mb_denom = bs_read_ue(b); sceClibPrintf("sps->vui.max_bits_per_mb_denom: %d \n", sps->vui.max_bits_per_mb_denom);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.log2_max_mv_length_horizontal = bs_read_ue(b); sceClibPrintf("sps->vui.log2_max_mv_length_horizontal: %d \n", sps->vui.log2_max_mv_length_horizontal);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.log2_max_mv_length_vertical = bs_read_ue(b); sceClibPrintf("sps->vui.log2_max_mv_length_vertical: %d \n", sps->vui.log2_max_mv_length_vertical);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.num_reorder_frames = bs_read_ue(b); sceClibPrintf("sps->vui.num_reorder_frames: %d \n", sps->vui.num_reorder_frames);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->vui.max_dec_frame_buffering = bs_read_ue(b); sceClibPrintf("sps->vui.max_dec_frame_buffering: %d \n", sps->vui.max_dec_frame_buffering);
     }
 }
 
@@ -2230,19 +2232,19 @@ void read_debug_hrd_parameters(h264_stream_t* h, bs_t* b)
 {
     sps_t* sps = h->sps;
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_cnt_minus1 = bs_read_ue(b); printf("sps->hrd.cpb_cnt_minus1: %d \n", sps->hrd.cpb_cnt_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.bit_rate_scale = bs_read_u(b, 4); printf("sps->hrd.bit_rate_scale: %d \n", sps->hrd.bit_rate_scale);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_size_scale = bs_read_u(b, 4); printf("sps->hrd.cpb_size_scale: %d \n", sps->hrd.cpb_size_scale);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_cnt_minus1 = bs_read_ue(b); sceClibPrintf("sps->hrd.cpb_cnt_minus1: %d \n", sps->hrd.cpb_cnt_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.bit_rate_scale = bs_read_u(b, 4); sceClibPrintf("sps->hrd.bit_rate_scale: %d \n", sps->hrd.bit_rate_scale);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_size_scale = bs_read_u(b, 4); sceClibPrintf("sps->hrd.cpb_size_scale: %d \n", sps->hrd.cpb_size_scale);
     for( int SchedSelIdx = 0; SchedSelIdx <= sps->hrd.cpb_cnt_minus1; SchedSelIdx++ )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.bit_rate_value_minus1[ SchedSelIdx ] = bs_read_ue(b); printf("sps->hrd.bit_rate_value_minus1[ SchedSelIdx ]: %d \n", sps->hrd.bit_rate_value_minus1[ SchedSelIdx ]);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_size_value_minus1[ SchedSelIdx ] = bs_read_ue(b); printf("sps->hrd.cpb_size_value_minus1[ SchedSelIdx ]: %d \n", sps->hrd.cpb_size_value_minus1[ SchedSelIdx ]);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cbr_flag[ SchedSelIdx ] = bs_read_u1(b); printf("sps->hrd.cbr_flag[ SchedSelIdx ]: %d \n", sps->hrd.cbr_flag[ SchedSelIdx ]);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.bit_rate_value_minus1[ SchedSelIdx ] = bs_read_ue(b); sceClibPrintf("sps->hrd.bit_rate_value_minus1[ SchedSelIdx ]: %d \n", sps->hrd.bit_rate_value_minus1[ SchedSelIdx ]);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_size_value_minus1[ SchedSelIdx ] = bs_read_ue(b); sceClibPrintf("sps->hrd.cpb_size_value_minus1[ SchedSelIdx ]: %d \n", sps->hrd.cpb_size_value_minus1[ SchedSelIdx ]);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cbr_flag[ SchedSelIdx ] = bs_read_u1(b); sceClibPrintf("sps->hrd.cbr_flag[ SchedSelIdx ]: %d \n", sps->hrd.cbr_flag[ SchedSelIdx ]);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.initial_cpb_removal_delay_length_minus1 = bs_read_u(b, 5); printf("sps->hrd.initial_cpb_removal_delay_length_minus1: %d \n", sps->hrd.initial_cpb_removal_delay_length_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_removal_delay_length_minus1 = bs_read_u(b, 5); printf("sps->hrd.cpb_removal_delay_length_minus1: %d \n", sps->hrd.cpb_removal_delay_length_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.dpb_output_delay_length_minus1 = bs_read_u(b, 5); printf("sps->hrd.dpb_output_delay_length_minus1: %d \n", sps->hrd.dpb_output_delay_length_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.time_offset_length = bs_read_u(b, 5); printf("sps->hrd.time_offset_length: %d \n", sps->hrd.time_offset_length);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.initial_cpb_removal_delay_length_minus1 = bs_read_u(b, 5); sceClibPrintf("sps->hrd.initial_cpb_removal_delay_length_minus1: %d \n", sps->hrd.initial_cpb_removal_delay_length_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.cpb_removal_delay_length_minus1 = bs_read_u(b, 5); sceClibPrintf("sps->hrd.cpb_removal_delay_length_minus1: %d \n", sps->hrd.cpb_removal_delay_length_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.dpb_output_delay_length_minus1 = bs_read_u(b, 5); sceClibPrintf("sps->hrd.dpb_output_delay_length_minus1: %d \n", sps->hrd.dpb_output_delay_length_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sps->hrd.time_offset_length = bs_read_u(b, 5); sceClibPrintf("sps->hrd.time_offset_length: %d \n", sps->hrd.time_offset_length);
 }
 
 
@@ -2250,15 +2252,15 @@ void read_debug_hrd_parameters(h264_stream_t* h, bs_t* b)
 UNIMPLEMENTED
 //7.3.2.1.2 Sequence parameter set extension RBSP syntax
 int read_debug_seq_parameter_set_extension_rbsp(bs_t* b, sps_ext_t* sps_ext) {
-    printf("%d.%d: ", b->p - b->start, b->bits_left); seq_parameter_set_id = bs_read_ue(b); printf("seq_parameter_set_id: %d \n", seq_parameter_set_id);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); aux_format_idc = bs_read_ue(b); printf("aux_format_idc: %d \n", aux_format_idc);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); seq_parameter_set_id = bs_read_ue(b); sceClibPrintf("seq_parameter_set_id: %d \n", seq_parameter_set_id);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); aux_format_idc = bs_read_ue(b); sceClibPrintf("aux_format_idc: %d \n", aux_format_idc);
     if( aux_format_idc != 0 ) {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); bit_depth_aux_minus8 = bs_read_ue(b); printf("bit_depth_aux_minus8: %d \n", bit_depth_aux_minus8);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); alpha_incr_flag = bs_read_u1(b); printf("alpha_incr_flag: %d \n", alpha_incr_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); bit_depth_aux_minus8 = bs_read_ue(b); sceClibPrintf("bit_depth_aux_minus8: %d \n", bit_depth_aux_minus8);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); alpha_incr_flag = bs_read_u1(b); sceClibPrintf("alpha_incr_flag: %d \n", alpha_incr_flag);
         alpha_opaque_value = bs_read_debug_u(v);
         alpha_transparent_value = bs_read_debug_u(v);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); additional_extension_flag = bs_read_u1(b); printf("additional_extension_flag: %d \n", additional_extension_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); additional_extension_flag = bs_read_u1(b); sceClibPrintf("additional_extension_flag: %d \n", additional_extension_flag);
     read_debug_rbsp_trailing_bits();
 }
 */
@@ -2269,60 +2271,60 @@ void read_debug_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
     pps_t* pps = h->pps;
     if( 1 )
     {
-        memset(pps, 0, sizeof(pps_t));
+        sceClibMemset(pps, 0, sizeof(pps_t));
     }
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_parameter_set_id = bs_read_ue(b); printf("pps->pic_parameter_set_id: %d \n", pps->pic_parameter_set_id);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->seq_parameter_set_id = bs_read_ue(b); printf("pps->seq_parameter_set_id: %d \n", pps->seq_parameter_set_id);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->entropy_coding_mode_flag = bs_read_u1(b); printf("pps->entropy_coding_mode_flag: %d \n", pps->entropy_coding_mode_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_order_present_flag = bs_read_u1(b); printf("pps->pic_order_present_flag: %d \n", pps->pic_order_present_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_slice_groups_minus1 = bs_read_ue(b); printf("pps->num_slice_groups_minus1: %d \n", pps->num_slice_groups_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_parameter_set_id = bs_read_ue(b); sceClibPrintf("pps->pic_parameter_set_id: %d \n", pps->pic_parameter_set_id);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->seq_parameter_set_id = bs_read_ue(b); sceClibPrintf("pps->seq_parameter_set_id: %d \n", pps->seq_parameter_set_id);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->entropy_coding_mode_flag = bs_read_u1(b); sceClibPrintf("pps->entropy_coding_mode_flag: %d \n", pps->entropy_coding_mode_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_order_present_flag = bs_read_u1(b); sceClibPrintf("pps->pic_order_present_flag: %d \n", pps->pic_order_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_slice_groups_minus1 = bs_read_ue(b); sceClibPrintf("pps->num_slice_groups_minus1: %d \n", pps->num_slice_groups_minus1);
 
     if( pps->num_slice_groups_minus1 > 0 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_map_type = bs_read_ue(b); printf("pps->slice_group_map_type: %d \n", pps->slice_group_map_type);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_map_type = bs_read_ue(b); sceClibPrintf("pps->slice_group_map_type: %d \n", pps->slice_group_map_type);
         if( pps->slice_group_map_type == 0 )
         {
             for( int i_group = 0; i_group <= pps->num_slice_groups_minus1; i_group++ )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); pps->run_length_minus1[ i_group ] = bs_read_ue(b); printf("pps->run_length_minus1[ i_group ]: %d \n", pps->run_length_minus1[ i_group ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->run_length_minus1[ i_group ] = bs_read_ue(b); sceClibPrintf("pps->run_length_minus1[ i_group ]: %d \n", pps->run_length_minus1[ i_group ]);
             }
         }
         else if( pps->slice_group_map_type == 2 )
         {
             for( int i_group = 0; i_group < pps->num_slice_groups_minus1; i_group++ )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); pps->top_left[ i_group ] = bs_read_ue(b); printf("pps->top_left[ i_group ]: %d \n", pps->top_left[ i_group ]);
-                printf("%d.%d: ", b->p - b->start, b->bits_left); pps->bottom_right[ i_group ] = bs_read_ue(b); printf("pps->bottom_right[ i_group ]: %d \n", pps->bottom_right[ i_group ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->top_left[ i_group ] = bs_read_ue(b); sceClibPrintf("pps->top_left[ i_group ]: %d \n", pps->top_left[ i_group ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->bottom_right[ i_group ] = bs_read_ue(b); sceClibPrintf("pps->bottom_right[ i_group ]: %d \n", pps->bottom_right[ i_group ]);
             }
         }
         else if( pps->slice_group_map_type == 3 ||
                  pps->slice_group_map_type == 4 ||
                  pps->slice_group_map_type == 5 )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_change_direction_flag = bs_read_u1(b); printf("pps->slice_group_change_direction_flag: %d \n", pps->slice_group_change_direction_flag);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_change_rate_minus1 = bs_read_ue(b); printf("pps->slice_group_change_rate_minus1: %d \n", pps->slice_group_change_rate_minus1);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_change_direction_flag = bs_read_u1(b); sceClibPrintf("pps->slice_group_change_direction_flag: %d \n", pps->slice_group_change_direction_flag);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_change_rate_minus1 = bs_read_ue(b); sceClibPrintf("pps->slice_group_change_rate_minus1: %d \n", pps->slice_group_change_rate_minus1);
         }
         else if( pps->slice_group_map_type == 6 )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_size_in_map_units_minus1 = bs_read_ue(b); printf("pps->pic_size_in_map_units_minus1: %d \n", pps->pic_size_in_map_units_minus1);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_size_in_map_units_minus1 = bs_read_ue(b); sceClibPrintf("pps->pic_size_in_map_units_minus1: %d \n", pps->pic_size_in_map_units_minus1);
             for( int i = 0; i <= pps->pic_size_in_map_units_minus1; i++ )
             {
                 int v = intlog2( pps->num_slice_groups_minus1 + 1 );
-                printf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_id[ i ] = bs_read_u(b, v); printf("pps->slice_group_id[ i ]: %d \n", pps->slice_group_id[ i ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->slice_group_id[ i ] = bs_read_u(b, v); sceClibPrintf("pps->slice_group_id[ i ]: %d \n", pps->slice_group_id[ i ]);
             }
         }
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_ref_idx_l0_active_minus1 = bs_read_ue(b); printf("pps->num_ref_idx_l0_active_minus1: %d \n", pps->num_ref_idx_l0_active_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_ref_idx_l1_active_minus1 = bs_read_ue(b); printf("pps->num_ref_idx_l1_active_minus1: %d \n", pps->num_ref_idx_l1_active_minus1);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->weighted_pred_flag = bs_read_u1(b); printf("pps->weighted_pred_flag: %d \n", pps->weighted_pred_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->weighted_bipred_idc = bs_read_u(b, 2); printf("pps->weighted_bipred_idc: %d \n", pps->weighted_bipred_idc);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_init_qp_minus26 = bs_read_se(b); printf("pps->pic_init_qp_minus26: %d \n", pps->pic_init_qp_minus26);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_init_qs_minus26 = bs_read_se(b); printf("pps->pic_init_qs_minus26: %d \n", pps->pic_init_qs_minus26);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->chroma_qp_index_offset = bs_read_se(b); printf("pps->chroma_qp_index_offset: %d \n", pps->chroma_qp_index_offset);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->deblocking_filter_control_present_flag = bs_read_u1(b); printf("pps->deblocking_filter_control_present_flag: %d \n", pps->deblocking_filter_control_present_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->constrained_intra_pred_flag = bs_read_u1(b); printf("pps->constrained_intra_pred_flag: %d \n", pps->constrained_intra_pred_flag);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); pps->redundant_pic_cnt_present_flag = bs_read_u1(b); printf("pps->redundant_pic_cnt_present_flag: %d \n", pps->redundant_pic_cnt_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_ref_idx_l0_active_minus1 = bs_read_ue(b); sceClibPrintf("pps->num_ref_idx_l0_active_minus1: %d \n", pps->num_ref_idx_l0_active_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->num_ref_idx_l1_active_minus1 = bs_read_ue(b); sceClibPrintf("pps->num_ref_idx_l1_active_minus1: %d \n", pps->num_ref_idx_l1_active_minus1);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->weighted_pred_flag = bs_read_u1(b); sceClibPrintf("pps->weighted_pred_flag: %d \n", pps->weighted_pred_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->weighted_bipred_idc = bs_read_u(b, 2); sceClibPrintf("pps->weighted_bipred_idc: %d \n", pps->weighted_bipred_idc);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_init_qp_minus26 = bs_read_se(b); sceClibPrintf("pps->pic_init_qp_minus26: %d \n", pps->pic_init_qp_minus26);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_init_qs_minus26 = bs_read_se(b); sceClibPrintf("pps->pic_init_qs_minus26: %d \n", pps->pic_init_qs_minus26);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->chroma_qp_index_offset = bs_read_se(b); sceClibPrintf("pps->chroma_qp_index_offset: %d \n", pps->chroma_qp_index_offset);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->deblocking_filter_control_present_flag = bs_read_u1(b); sceClibPrintf("pps->deblocking_filter_control_present_flag: %d \n", pps->deblocking_filter_control_present_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->constrained_intra_pred_flag = bs_read_u1(b); sceClibPrintf("pps->constrained_intra_pred_flag: %d \n", pps->constrained_intra_pred_flag);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->redundant_pic_cnt_present_flag = bs_read_u1(b); sceClibPrintf("pps->redundant_pic_cnt_present_flag: %d \n", pps->redundant_pic_cnt_present_flag);
 
     int have_more_data = 0;
     if( 1 ) { have_more_data = more_rbsp_data(h, b); }
@@ -2333,13 +2335,13 @@ void read_debug_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
 
     if( have_more_data )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); pps->transform_8x8_mode_flag = bs_read_u1(b); printf("pps->transform_8x8_mode_flag: %d \n", pps->transform_8x8_mode_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_scaling_matrix_present_flag = bs_read_u1(b); printf("pps->pic_scaling_matrix_present_flag: %d \n", pps->pic_scaling_matrix_present_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->transform_8x8_mode_flag = bs_read_u1(b); sceClibPrintf("pps->transform_8x8_mode_flag: %d \n", pps->transform_8x8_mode_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_scaling_matrix_present_flag = bs_read_u1(b); sceClibPrintf("pps->pic_scaling_matrix_present_flag: %d \n", pps->pic_scaling_matrix_present_flag);
         if( pps->pic_scaling_matrix_present_flag )
         {
             for( int i = 0; i < 6 + 2* pps->transform_8x8_mode_flag; i++ )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_scaling_list_present_flag[ i ] = bs_read_u1(b); printf("pps->pic_scaling_list_present_flag[ i ]: %d \n", pps->pic_scaling_list_present_flag[ i ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->pic_scaling_list_present_flag[ i ] = bs_read_u1(b); sceClibPrintf("pps->pic_scaling_list_present_flag[ i ]: %d \n", pps->pic_scaling_list_present_flag[ i ]);
                 if( pps->pic_scaling_list_present_flag[ i ] )
                 {
                     if( i < 6 )
@@ -2355,13 +2357,13 @@ void read_debug_pic_parameter_set_rbsp(h264_stream_t* h, bs_t* b)
                 }
             }
         }
-        printf("%d.%d: ", b->p - b->start, b->bits_left); pps->second_chroma_qp_index_offset = bs_read_se(b); printf("pps->second_chroma_qp_index_offset: %d \n", pps->second_chroma_qp_index_offset);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); pps->second_chroma_qp_index_offset = bs_read_se(b); sceClibPrintf("pps->second_chroma_qp_index_offset: %d \n", pps->second_chroma_qp_index_offset);
     }
     read_debug_rbsp_trailing_bits(h, b);
 
     if( 1 )
     {
-        memcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
+        sceClibMemcpy(h->pps, h->pps_table[pps->pic_parameter_set_id], sizeof(pps_t));
     }
 }
 
@@ -2420,7 +2422,7 @@ void read_debug_sei_message(h264_stream_t* h, bs_t* b)
 //7.3.2.4 Access unit delimiter RBSP syntax
 void read_debug_access_unit_delimiter_rbsp(h264_stream_t* h, bs_t* b)
 {
-    printf("%d.%d: ", b->p - b->start, b->bits_left); h->aud->primary_pic_type = bs_read_u(b, 3); printf("h->aud->primary_pic_type: %d \n", h->aud->primary_pic_type);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); h->aud->primary_pic_type = bs_read_u(b, 3); sceClibPrintf("h->aud->primary_pic_type: %d \n", h->aud->primary_pic_type);
     read_debug_rbsp_trailing_bits(h, b);
 }
 
@@ -2439,7 +2441,7 @@ void read_debug_filler_data_rbsp(h264_stream_t* h, bs_t* b)
 {
     while( bs_next_bits(b, 8) == 0xFF )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); int ff_byte = bs_read_u(b, 8); printf("ff_byte: %d \n", ff_byte);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int ff_byte = bs_read_u(b, 8); sceClibPrintf("ff_byte: %d \n", ff_byte);
     }
     read_debug_rbsp_trailing_bits(h, b);
 }
@@ -2457,7 +2459,7 @@ void read_debug_slice_layer_rbsp(h264_stream_t* h,  bs_t* b)
         slice_data->rbsp_size = b->end - sptr;
 
         slice_data->rbsp_buf = (uint8_t*)malloc(slice_data->rbsp_size);
-        memcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
+        sceClibMemcpy( slice_data->rbsp_buf, sptr, slice_data->rbsp_size );
         // ugly hack: since next NALU starts at byte border, we are going to be padded by trailing_bits;
         return;
     }
@@ -2479,18 +2481,18 @@ slice_data_partition_a_layer_rbsp( ) {
 
 //7.3.2.9.2 Slice data partition B RBSP syntax
 slice_data_partition_b_layer_rbsp( ) {
-    printf("%d.%d: ", b->p - b->start, b->bits_left); slice_id = bs_read_ue(b); printf("slice_id: %d \n", slice_id);     // only category 3
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); slice_id = bs_read_ue(b); sceClibPrintf("slice_id: %d \n", slice_id);     // only category 3
     if( redundant_pic_cnt_present_flag )
-        printf("%d.%d: ", b->p - b->start, b->bits_left); redundant_pic_cnt = bs_read_ue(b); printf("redundant_pic_cnt: %d \n", redundant_pic_cnt);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); redundant_pic_cnt = bs_read_ue(b); sceClibPrintf("redundant_pic_cnt: %d \n", redundant_pic_cnt);
     read_debug_slice_data( );               // only category 3
     read_debug_rbsp_slice_trailing_bits( ); // only category 3
 }
 
 //7.3.2.9.3 Slice data partition C RBSP syntax
 slice_data_partition_c_layer_rbsp( ) {
-    printf("%d.%d: ", b->p - b->start, b->bits_left); slice_id = bs_read_ue(b); printf("slice_id: %d \n", slice_id);     // only category 4
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); slice_id = bs_read_ue(b); sceClibPrintf("slice_id: %d \n", slice_id);     // only category 4
     if( redundant_pic_cnt_present_flag )
-        printf("%d.%d: ", b->p - b->start, b->bits_left); redundant_pic_cnt = bs_read_ue(b); printf("redundant_pic_cnt: %d \n", redundant_pic_cnt);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); redundant_pic_cnt = bs_read_ue(b); sceClibPrintf("redundant_pic_cnt: %d \n", redundant_pic_cnt);
     read_debug_slice_data( );               // only category 4
     rbsp_slice_trailing_bits( ); // only category 4
 }
@@ -2504,7 +2506,7 @@ void read_debug_rbsp_slice_trailing_bits(h264_stream_t* h, bs_t* b)
     {
         while( more_rbsp_trailing_data(h, b) )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); int cabac_zero_word = bs_read_u(b, 16); printf("cabac_zero_word: %d \n", cabac_zero_word);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int cabac_zero_word = bs_read_u(b, 16); sceClibPrintf("cabac_zero_word: %d \n", cabac_zero_word);
         }
     }
 }
@@ -2512,11 +2514,11 @@ void read_debug_rbsp_slice_trailing_bits(h264_stream_t* h, bs_t* b)
 //7.3.2.11 RBSP trailing bits syntax
 void read_debug_rbsp_trailing_bits(h264_stream_t* h, bs_t* b)
 {
-    printf("%d.%d: ", b->p - b->start, b->bits_left); int rbsp_stop_one_bit = bs_read_u(b, 1); printf("rbsp_stop_one_bit: %d \n", rbsp_stop_one_bit);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int rbsp_stop_one_bit = bs_read_u(b, 1); sceClibPrintf("rbsp_stop_one_bit: %d \n", rbsp_stop_one_bit);
 
     while( !bs_byte_aligned(b) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); int rbsp_alignment_zero_bit = bs_read_u(b, 1); printf("rbsp_alignment_zero_bit: %d \n", rbsp_alignment_zero_bit);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); int rbsp_alignment_zero_bit = bs_read_u(b, 1); sceClibPrintf("rbsp_alignment_zero_bit: %d \n", rbsp_alignment_zero_bit);
     }
 }
 
@@ -2526,67 +2528,67 @@ void read_debug_slice_header(h264_stream_t* h, bs_t* b)
     slice_header_t* sh = h->sh;
     if( 1 )
     {
-        memset(sh, 0, sizeof(slice_header_t));
+        sceClibMemset(sh, 0, sizeof(slice_header_t));
     }
 
     nal_t* nal = h->nal;
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->first_mb_in_slice = bs_read_ue(b); printf("sh->first_mb_in_slice: %d \n", sh->first_mb_in_slice);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_type = bs_read_ue(b); printf("sh->slice_type: %d \n", sh->slice_type);
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pic_parameter_set_id = bs_read_ue(b); printf("sh->pic_parameter_set_id: %d \n", sh->pic_parameter_set_id);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->first_mb_in_slice = bs_read_ue(b); sceClibPrintf("sh->first_mb_in_slice: %d \n", sh->first_mb_in_slice);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_type = bs_read_ue(b); sceClibPrintf("sh->slice_type: %d \n", sh->slice_type);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pic_parameter_set_id = bs_read_ue(b); sceClibPrintf("sh->pic_parameter_set_id: %d \n", sh->pic_parameter_set_id);
 
     // TODO check existence, otherwise fail
     pps_t* pps = h->pps;
     sps_t* sps = h->sps;
-    memcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
-    memcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
+    sceClibMemcpy(h->pps_table[sh->pic_parameter_set_id], h->pps, sizeof(pps_t));
+    sceClibMemcpy(h->sps_table[pps->seq_parameter_set_id], h->sps, sizeof(sps_t));
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->frame_num = bs_read_u(b, sps->log2_max_frame_num_minus4 + 4 ); printf("sh->frame_num: %d \n", sh->frame_num);  // was u(v)
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->frame_num = bs_read_u(b, sps->log2_max_frame_num_minus4 + 4 ); sceClibPrintf("sh->frame_num: %d \n", sh->frame_num);  // was u(v)
     if( !sps->frame_mbs_only_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->field_pic_flag = bs_read_u1(b); printf("sh->field_pic_flag: %d \n", sh->field_pic_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->field_pic_flag = bs_read_u1(b); sceClibPrintf("sh->field_pic_flag: %d \n", sh->field_pic_flag);
         if( sh->field_pic_flag )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->bottom_field_flag = bs_read_u1(b); printf("sh->bottom_field_flag: %d \n", sh->bottom_field_flag);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->bottom_field_flag = bs_read_u1(b); sceClibPrintf("sh->bottom_field_flag: %d \n", sh->bottom_field_flag);
         }
     }
     if( nal->nal_unit_type == 5 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->idr_pic_id = bs_read_ue(b); printf("sh->idr_pic_id: %d \n", sh->idr_pic_id);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->idr_pic_id = bs_read_ue(b); sceClibPrintf("sh->idr_pic_id: %d \n", sh->idr_pic_id);
     }
     if( sps->pic_order_cnt_type == 0 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pic_order_cnt_lsb = bs_read_u(b, sps->log2_max_pic_order_cnt_lsb_minus4 + 4 ); printf("sh->pic_order_cnt_lsb: %d \n", sh->pic_order_cnt_lsb);  // was u(v)
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pic_order_cnt_lsb = bs_read_u(b, sps->log2_max_pic_order_cnt_lsb_minus4 + 4 ); sceClibPrintf("sh->pic_order_cnt_lsb: %d \n", sh->pic_order_cnt_lsb);  // was u(v)
         if( pps->pic_order_present_flag && !sh->field_pic_flag )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt_bottom = bs_read_se(b); printf("sh->delta_pic_order_cnt_bottom: %d \n", sh->delta_pic_order_cnt_bottom);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt_bottom = bs_read_se(b); sceClibPrintf("sh->delta_pic_order_cnt_bottom: %d \n", sh->delta_pic_order_cnt_bottom);
         }
     }
     if( sps->pic_order_cnt_type == 1 && !sps->delta_pic_order_always_zero_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt[ 0 ] = bs_read_se(b); printf("sh->delta_pic_order_cnt[ 0 ]: %d \n", sh->delta_pic_order_cnt[ 0 ]);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt[ 0 ] = bs_read_se(b); sceClibPrintf("sh->delta_pic_order_cnt[ 0 ]: %d \n", sh->delta_pic_order_cnt[ 0 ]);
         if( pps->pic_order_present_flag && !sh->field_pic_flag )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt[ 1 ] = bs_read_se(b); printf("sh->delta_pic_order_cnt[ 1 ]: %d \n", sh->delta_pic_order_cnt[ 1 ]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->delta_pic_order_cnt[ 1 ] = bs_read_se(b); sceClibPrintf("sh->delta_pic_order_cnt[ 1 ]: %d \n", sh->delta_pic_order_cnt[ 1 ]);
         }
     }
     if( pps->redundant_pic_cnt_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->redundant_pic_cnt = bs_read_ue(b); printf("sh->redundant_pic_cnt: %d \n", sh->redundant_pic_cnt);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->redundant_pic_cnt = bs_read_ue(b); sceClibPrintf("sh->redundant_pic_cnt: %d \n", sh->redundant_pic_cnt);
     }
     if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_B ) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->direct_spatial_mv_pred_flag = bs_read_u1(b); printf("sh->direct_spatial_mv_pred_flag: %d \n", sh->direct_spatial_mv_pred_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->direct_spatial_mv_pred_flag = bs_read_u1(b); sceClibPrintf("sh->direct_spatial_mv_pred_flag: %d \n", sh->direct_spatial_mv_pred_flag);
     }
     if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_P ) || is_slice_type( sh->slice_type, SH_SLICE_TYPE_SP ) || is_slice_type( sh->slice_type, SH_SLICE_TYPE_B ) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_active_override_flag = bs_read_u1(b); printf("sh->num_ref_idx_active_override_flag: %d \n", sh->num_ref_idx_active_override_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_active_override_flag = bs_read_u1(b); sceClibPrintf("sh->num_ref_idx_active_override_flag: %d \n", sh->num_ref_idx_active_override_flag);
         if( sh->num_ref_idx_active_override_flag )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_l0_active_minus1 = bs_read_ue(b); printf("sh->num_ref_idx_l0_active_minus1: %d \n", sh->num_ref_idx_l0_active_minus1);  // FIXME does this modify the pps?
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_l0_active_minus1 = bs_read_ue(b); sceClibPrintf("sh->num_ref_idx_l0_active_minus1: %d \n", sh->num_ref_idx_l0_active_minus1);  // FIXME does this modify the pps?
             if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_B ) )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_l1_active_minus1 = bs_read_ue(b); printf("sh->num_ref_idx_l1_active_minus1: %d \n", sh->num_ref_idx_l1_active_minus1);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->num_ref_idx_l1_active_minus1 = bs_read_ue(b); sceClibPrintf("sh->num_ref_idx_l1_active_minus1: %d \n", sh->num_ref_idx_l1_active_minus1);
             }
         }
     }
@@ -2602,31 +2604,31 @@ void read_debug_slice_header(h264_stream_t* h, bs_t* b)
     }
     if( pps->entropy_coding_mode_flag && ! is_slice_type( sh->slice_type, SH_SLICE_TYPE_I ) && ! is_slice_type( sh->slice_type, SH_SLICE_TYPE_SI ) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->cabac_init_idc = bs_read_ue(b); printf("sh->cabac_init_idc: %d \n", sh->cabac_init_idc);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->cabac_init_idc = bs_read_ue(b); sceClibPrintf("sh->cabac_init_idc: %d \n", sh->cabac_init_idc);
     }
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_qp_delta = bs_read_se(b); printf("sh->slice_qp_delta: %d \n", sh->slice_qp_delta);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_qp_delta = bs_read_se(b); sceClibPrintf("sh->slice_qp_delta: %d \n", sh->slice_qp_delta);
     if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_SP ) || is_slice_type( sh->slice_type, SH_SLICE_TYPE_SI ) )
     {
         if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_SP ) )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->sp_for_switch_flag = bs_read_u1(b); printf("sh->sp_for_switch_flag: %d \n", sh->sp_for_switch_flag);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->sp_for_switch_flag = bs_read_u1(b); sceClibPrintf("sh->sp_for_switch_flag: %d \n", sh->sp_for_switch_flag);
         }
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_qs_delta = bs_read_se(b); printf("sh->slice_qs_delta: %d \n", sh->slice_qs_delta);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_qs_delta = bs_read_se(b); sceClibPrintf("sh->slice_qs_delta: %d \n", sh->slice_qs_delta);
     }
     if( pps->deblocking_filter_control_present_flag )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->disable_deblocking_filter_idc = bs_read_ue(b); printf("sh->disable_deblocking_filter_idc: %d \n", sh->disable_deblocking_filter_idc);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->disable_deblocking_filter_idc = bs_read_ue(b); sceClibPrintf("sh->disable_deblocking_filter_idc: %d \n", sh->disable_deblocking_filter_idc);
         if( sh->disable_deblocking_filter_idc != 1 )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_alpha_c0_offset_div2 = bs_read_se(b); printf("sh->slice_alpha_c0_offset_div2: %d \n", sh->slice_alpha_c0_offset_div2);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_beta_offset_div2 = bs_read_se(b); printf("sh->slice_beta_offset_div2: %d \n", sh->slice_beta_offset_div2);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_alpha_c0_offset_div2 = bs_read_se(b); sceClibPrintf("sh->slice_alpha_c0_offset_div2: %d \n", sh->slice_alpha_c0_offset_div2);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_beta_offset_div2 = bs_read_se(b); sceClibPrintf("sh->slice_beta_offset_div2: %d \n", sh->slice_beta_offset_div2);
         }
     }
     if( pps->num_slice_groups_minus1 > 0 &&
         pps->slice_group_map_type >= 3 && pps->slice_group_map_type <= 5)
     {
         int v = intlog2( pps->pic_size_in_map_units_minus1 +  pps->slice_group_change_rate_minus1 + 1 );
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_group_change_cycle = bs_read_u(b, v); printf("sh->slice_group_change_cycle: %d \n", sh->slice_group_change_cycle);  // FIXME add 2?
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->slice_group_change_cycle = bs_read_u(b, v); sceClibPrintf("sh->slice_group_change_cycle: %d \n", sh->slice_group_change_cycle);  // FIXME add 2?
     }
 }
 
@@ -2638,44 +2640,44 @@ void read_debug_ref_pic_list_reordering(h264_stream_t* h, bs_t* b)
 
     if( ! is_slice_type( sh->slice_type, SH_SLICE_TYPE_I ) && ! is_slice_type( sh->slice_type, SH_SLICE_TYPE_SI ) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.ref_pic_list_reordering_flag_l0 = bs_read_u1(b); printf("sh->rplr.ref_pic_list_reordering_flag_l0: %d \n", sh->rplr.ref_pic_list_reordering_flag_l0);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.ref_pic_list_reordering_flag_l0 = bs_read_u1(b); sceClibPrintf("sh->rplr.ref_pic_list_reordering_flag_l0: %d \n", sh->rplr.ref_pic_list_reordering_flag_l0);
         if( sh->rplr.ref_pic_list_reordering_flag_l0 )
         {
             int n = -1;
             do
             {
                 n++;
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ]: %d \n", sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ]: %d \n", sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ]);
                 if( sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] == 0 ||
                     sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] == 1 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ]: %d \n", sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ]: %d \n", sh->rplr.reorder_l0.abs_diff_pic_num_minus1[ n ]);
                 }
                 else if( sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] == 2 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.long_term_pic_num[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l0.long_term_pic_num[ n ]: %d \n", sh->rplr.reorder_l0.long_term_pic_num[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l0.long_term_pic_num[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l0.long_term_pic_num[ n ]: %d \n", sh->rplr.reorder_l0.long_term_pic_num[ n ]);
                 }
             } while( sh->rplr.reorder_l0.reordering_of_pic_nums_idc[ n ] != 3 && ! bs_eof(b) );
         }
     }
     if( is_slice_type( sh->slice_type, SH_SLICE_TYPE_B ) )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.ref_pic_list_reordering_flag_l1 = bs_read_u1(b); printf("sh->rplr.ref_pic_list_reordering_flag_l1: %d \n", sh->rplr.ref_pic_list_reordering_flag_l1);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.ref_pic_list_reordering_flag_l1 = bs_read_u1(b); sceClibPrintf("sh->rplr.ref_pic_list_reordering_flag_l1: %d \n", sh->rplr.ref_pic_list_reordering_flag_l1);
         if( sh->rplr.ref_pic_list_reordering_flag_l1 )
         {
             int n = -1;
             do
             {
                 n++;
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ]: %d \n", sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ]: %d \n", sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ]);
                 if( sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] == 0 ||
                     sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] == 1 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ]: %d \n", sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ]: %d \n", sh->rplr.reorder_l1.abs_diff_pic_num_minus1[ n ]);
                 }
                 else if( sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] == 2 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.long_term_pic_num[ n ] = bs_read_ue(b); printf("sh->rplr.reorder_l1.long_term_pic_num[ n ]: %d \n", sh->rplr.reorder_l1.long_term_pic_num[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->rplr.reorder_l1.long_term_pic_num[ n ] = bs_read_ue(b); sceClibPrintf("sh->rplr.reorder_l1.long_term_pic_num[ n ]: %d \n", sh->rplr.reorder_l1.long_term_pic_num[ n ]);
                 }
             } while( sh->rplr.reorder_l1.reordering_of_pic_nums_idc[ n ] != 3 && ! bs_eof(b) );
         }
@@ -2691,28 +2693,28 @@ void read_debug_pred_weight_table(h264_stream_t* h, bs_t* b)
 
     int i, j;
 
-    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_log2_weight_denom = bs_read_ue(b); printf("sh->pwt.luma_log2_weight_denom: %d \n", sh->pwt.luma_log2_weight_denom);
+    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_log2_weight_denom = bs_read_ue(b); sceClibPrintf("sh->pwt.luma_log2_weight_denom: %d \n", sh->pwt.luma_log2_weight_denom);
     if( sps->chroma_format_idc != 0 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_log2_weight_denom = bs_read_ue(b); printf("sh->pwt.chroma_log2_weight_denom: %d \n", sh->pwt.chroma_log2_weight_denom);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_log2_weight_denom = bs_read_ue(b); sceClibPrintf("sh->pwt.chroma_log2_weight_denom: %d \n", sh->pwt.chroma_log2_weight_denom);
     }
     for( i = 0; i <= pps->num_ref_idx_l0_active_minus1; i++ )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l0_flag[i] = bs_read_u1(b); printf("sh->pwt.luma_weight_l0_flag[i]: %d \n", sh->pwt.luma_weight_l0_flag[i]);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l0_flag[i] = bs_read_u1(b); sceClibPrintf("sh->pwt.luma_weight_l0_flag[i]: %d \n", sh->pwt.luma_weight_l0_flag[i]);
         if( sh->pwt.luma_weight_l0_flag[i] )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l0[ i ] = bs_read_se(b); printf("sh->pwt.luma_weight_l0[ i ]: %d \n", sh->pwt.luma_weight_l0[ i ]);
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_offset_l0[ i ] = bs_read_se(b); printf("sh->pwt.luma_offset_l0[ i ]: %d \n", sh->pwt.luma_offset_l0[ i ]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l0[ i ] = bs_read_se(b); sceClibPrintf("sh->pwt.luma_weight_l0[ i ]: %d \n", sh->pwt.luma_weight_l0[ i ]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_offset_l0[ i ] = bs_read_se(b); sceClibPrintf("sh->pwt.luma_offset_l0[ i ]: %d \n", sh->pwt.luma_offset_l0[ i ]);
         }
         if ( sps->chroma_format_idc != 0 )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l0_flag[i] = bs_read_u1(b); printf("sh->pwt.chroma_weight_l0_flag[i]: %d \n", sh->pwt.chroma_weight_l0_flag[i]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l0_flag[i] = bs_read_u1(b); sceClibPrintf("sh->pwt.chroma_weight_l0_flag[i]: %d \n", sh->pwt.chroma_weight_l0_flag[i]);
             if( sh->pwt.chroma_weight_l0_flag[i] )
             {
                 for( j =0; j < 2; j++ )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l0[ i ][ j ] = bs_read_se(b); printf("sh->pwt.chroma_weight_l0[ i ][ j ]: %d \n", sh->pwt.chroma_weight_l0[ i ][ j ]);
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_offset_l0[ i ][ j ] = bs_read_se(b); printf("sh->pwt.chroma_offset_l0[ i ][ j ]: %d \n", sh->pwt.chroma_offset_l0[ i ][ j ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l0[ i ][ j ] = bs_read_se(b); sceClibPrintf("sh->pwt.chroma_weight_l0[ i ][ j ]: %d \n", sh->pwt.chroma_weight_l0[ i ][ j ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_offset_l0[ i ][ j ] = bs_read_se(b); sceClibPrintf("sh->pwt.chroma_offset_l0[ i ][ j ]: %d \n", sh->pwt.chroma_offset_l0[ i ][ j ]);
                 }
             }
         }
@@ -2721,21 +2723,21 @@ void read_debug_pred_weight_table(h264_stream_t* h, bs_t* b)
     {
         for( i = 0; i <= pps->num_ref_idx_l1_active_minus1; i++ )
         {
-            printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l1_flag[i] = bs_read_u1(b); printf("sh->pwt.luma_weight_l1_flag[i]: %d \n", sh->pwt.luma_weight_l1_flag[i]);
+            sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l1_flag[i] = bs_read_u1(b); sceClibPrintf("sh->pwt.luma_weight_l1_flag[i]: %d \n", sh->pwt.luma_weight_l1_flag[i]);
             if( sh->pwt.luma_weight_l1_flag[i] )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l1[ i ] = bs_read_se(b); printf("sh->pwt.luma_weight_l1[ i ]: %d \n", sh->pwt.luma_weight_l1[ i ]);
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_offset_l1[ i ] = bs_read_se(b); printf("sh->pwt.luma_offset_l1[ i ]: %d \n", sh->pwt.luma_offset_l1[ i ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_weight_l1[ i ] = bs_read_se(b); sceClibPrintf("sh->pwt.luma_weight_l1[ i ]: %d \n", sh->pwt.luma_weight_l1[ i ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.luma_offset_l1[ i ] = bs_read_se(b); sceClibPrintf("sh->pwt.luma_offset_l1[ i ]: %d \n", sh->pwt.luma_offset_l1[ i ]);
             }
             if( sps->chroma_format_idc != 0 )
             {
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l1_flag[i] = bs_read_u1(b); printf("sh->pwt.chroma_weight_l1_flag[i]: %d \n", sh->pwt.chroma_weight_l1_flag[i]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l1_flag[i] = bs_read_u1(b); sceClibPrintf("sh->pwt.chroma_weight_l1_flag[i]: %d \n", sh->pwt.chroma_weight_l1_flag[i]);
                 if( sh->pwt.chroma_weight_l1_flag[i] )
                 {
                     for( j = 0; j < 2; j++ )
                     {
-                        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l1[ i ][ j ] = bs_read_se(b); printf("sh->pwt.chroma_weight_l1[ i ][ j ]: %d \n", sh->pwt.chroma_weight_l1[ i ][ j ]);
-                        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_offset_l1[ i ][ j ] = bs_read_se(b); printf("sh->pwt.chroma_offset_l1[ i ][ j ]: %d \n", sh->pwt.chroma_offset_l1[ i ][ j ]);
+                        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_weight_l1[ i ][ j ] = bs_read_se(b); sceClibPrintf("sh->pwt.chroma_weight_l1[ i ][ j ]: %d \n", sh->pwt.chroma_weight_l1[ i ][ j ]);
+                        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->pwt.chroma_offset_l1[ i ][ j ] = bs_read_se(b); sceClibPrintf("sh->pwt.chroma_offset_l1[ i ][ j ]: %d \n", sh->pwt.chroma_offset_l1[ i ][ j ]);
                     }
                 }
             }
@@ -2751,36 +2753,36 @@ void read_debug_dec_ref_pic_marking(h264_stream_t* h, bs_t* b)
 
     if( h->nal->nal_unit_type == 5 )
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.no_output_of_prior_pics_flag = bs_read_u1(b); printf("sh->drpm.no_output_of_prior_pics_flag: %d \n", sh->drpm.no_output_of_prior_pics_flag);
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_reference_flag = bs_read_u1(b); printf("sh->drpm.long_term_reference_flag: %d \n", sh->drpm.long_term_reference_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.no_output_of_prior_pics_flag = bs_read_u1(b); sceClibPrintf("sh->drpm.no_output_of_prior_pics_flag: %d \n", sh->drpm.no_output_of_prior_pics_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_reference_flag = bs_read_u1(b); sceClibPrintf("sh->drpm.long_term_reference_flag: %d \n", sh->drpm.long_term_reference_flag);
     }
     else
     {
-        printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.adaptive_ref_pic_marking_mode_flag = bs_read_u1(b); printf("sh->drpm.adaptive_ref_pic_marking_mode_flag: %d \n", sh->drpm.adaptive_ref_pic_marking_mode_flag);
+        sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.adaptive_ref_pic_marking_mode_flag = bs_read_u1(b); sceClibPrintf("sh->drpm.adaptive_ref_pic_marking_mode_flag: %d \n", sh->drpm.adaptive_ref_pic_marking_mode_flag);
         if( sh->drpm.adaptive_ref_pic_marking_mode_flag )
         {
             int n = -1;
             do
             {
                 n++;
-                printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.memory_management_control_operation[ n ] = bs_read_ue(b); printf("sh->drpm.memory_management_control_operation[ n ]: %d \n", sh->drpm.memory_management_control_operation[ n ]);
+                sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.memory_management_control_operation[ n ] = bs_read_ue(b); sceClibPrintf("sh->drpm.memory_management_control_operation[ n ]: %d \n", sh->drpm.memory_management_control_operation[ n ]);
                 if( sh->drpm.memory_management_control_operation[ n ] == 1 ||
                     sh->drpm.memory_management_control_operation[ n ] == 3 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.difference_of_pic_nums_minus1[ n ] = bs_read_ue(b); printf("sh->drpm.difference_of_pic_nums_minus1[ n ]: %d \n", sh->drpm.difference_of_pic_nums_minus1[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.difference_of_pic_nums_minus1[ n ] = bs_read_ue(b); sceClibPrintf("sh->drpm.difference_of_pic_nums_minus1[ n ]: %d \n", sh->drpm.difference_of_pic_nums_minus1[ n ]);
                 }
                 if(sh->drpm.memory_management_control_operation[ n ] == 2 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_pic_num[ n ] = bs_read_ue(b); printf("sh->drpm.long_term_pic_num[ n ]: %d \n", sh->drpm.long_term_pic_num[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_pic_num[ n ] = bs_read_ue(b); sceClibPrintf("sh->drpm.long_term_pic_num[ n ]: %d \n", sh->drpm.long_term_pic_num[ n ]);
                 }
                 if( sh->drpm.memory_management_control_operation[ n ] == 3 ||
                     sh->drpm.memory_management_control_operation[ n ] == 6 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_frame_idx[ n ] = bs_read_ue(b); printf("sh->drpm.long_term_frame_idx[ n ]: %d \n", sh->drpm.long_term_frame_idx[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.long_term_frame_idx[ n ] = bs_read_ue(b); sceClibPrintf("sh->drpm.long_term_frame_idx[ n ]: %d \n", sh->drpm.long_term_frame_idx[ n ]);
                 }
                 if( sh->drpm.memory_management_control_operation[ n ] == 4 )
                 {
-                    printf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.max_long_term_frame_idx_plus1[ n ] = bs_read_ue(b); printf("sh->drpm.max_long_term_frame_idx_plus1[ n ]: %d \n", sh->drpm.max_long_term_frame_idx_plus1[ n ]);
+                    sceClibPrintf("%d.%d: ", b->p - b->start, b->bits_left); sh->drpm.max_long_term_frame_idx_plus1[ n ] = bs_read_ue(b); sceClibPrintf("sh->drpm.max_long_term_frame_idx_plus1[ n ]: %d \n", sh->drpm.max_long_term_frame_idx_plus1[ n ]);
                 }
             } while( sh->drpm.memory_management_control_operation[ n ] != 0 && ! bs_eof(b) );
         }

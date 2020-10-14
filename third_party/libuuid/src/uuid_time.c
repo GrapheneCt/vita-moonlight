@@ -136,34 +136,34 @@ main(int argc, char **argv)
 	type = uuid_type(buf);
 	time_reg = uuid_time(buf, &tv);
 
-	printf("UUID variant is %d (%s)\n", variant, variant_string(variant));
+	sceClibPrintf("UUID variant is %d (%s)\n", variant, variant_string(variant));
 	if (variant != UUID_VARIANT_DCE) {
-		printf("Warning: This program only knows how to interpret "
+		sceClibPrintf("Warning: This program only knows how to interpret "
 		       "DCE UUIDs.\n\tThe rest of the output is likely "
 		       "to be incorrect!!\n");
 	}
-	printf("UUID type is %d", type);
+	sceClibPrintf("UUID type is %d", type);
 	switch (type) {
 	case 1:
-		printf(" (time based)\n");
+		sceClibPrintf(" (time based)\n");
 		break;
 	case 2:
-		printf(" (DCE)\n");
+		sceClibPrintf(" (DCE)\n");
 		break;
 	case 3:
-		printf(" (name-based)\n");
+		sceClibPrintf(" (name-based)\n");
 		break;
 	case 4:
-		printf(" (random)\n");
+		sceClibPrintf(" (random)\n");
 		break;
 	default:
-		printf("\n");
+		sceClibPrintf("\n");
 	}
 	if (type != 1) {
-		printf("Warning: not a time-based UUID, so UUID time "
+		sceClibPrintf("Warning: not a time-based UUID, so UUID time "
 		       "decoding will likely not work!\n");
 	}
-	printf("UUID time is: (%ld, %ld): %s\n", (long)tv.tv_sec, (long)tv.tv_usec,
+	sceClibPrintf("UUID time is: (%ld, %ld): %s\n", (long)tv.tv_sec, (long)tv.tv_usec,
 	       ctime(&time_reg));
 
 	return 0;

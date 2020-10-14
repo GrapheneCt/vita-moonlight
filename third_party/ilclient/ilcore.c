@@ -162,7 +162,7 @@ OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
          vcos_assert(0);
          return OMX_ErrorInsufficientResources;
       }
-      memset(pComp, 0, sizeof(OMX_COMPONENTTYPE));
+      sceClibMemset(pComp, 0, sizeof(OMX_COMPONENTTYPE));
       hHandle = (OMX_HANDLETYPE)pComp;
       pComp->nSize = sizeof(OMX_COMPONENTTYPE);
       pComp->nVersion.nVersion = OMX_VERSION;

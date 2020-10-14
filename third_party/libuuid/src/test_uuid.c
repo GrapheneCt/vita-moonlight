@@ -55,12 +55,12 @@ static int test_uuid(const char * uuid, int isValid)
 
 	parsedOk = uuid_parse(uuid, uuidBits) == 0;
 
-	printf("%s is %s", uuid, validStr[isValid]);
+	sceClibPrintf("%s is %s", uuid, validStr[isValid]);
 	if (parsedOk != isValid) {
-		printf(" but uuid_parse says %s\n", validStr[parsedOk]);
+		sceClibPrintf(" but uuid_parse says %s\n", validStr[parsedOk]);
 		return 1;
 	}
-	printf(", OK\n");
+	sceClibPrintf(", OK\n");
 	return 0;
 }
 
@@ -113,7 +113,7 @@ main(int argc, char **argv)
 			failed += check_uuids_in_file(argv[i]);
 	}
 	if (failed) {
-		printf("%d failures.\n", failed);
+		sceClibPrintf("%d failures.\n", failed);
 		exit(1);
 	}
 	return 0;

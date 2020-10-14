@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <psp2/kernel/clib.h>
+
 #include "bs.h"
 #include "h264_stream.h"
 #include "h264_sei.h"
@@ -31,7 +33,7 @@
 sei_t* sei_new()
 {
     sei_t* s = (sei_t*)malloc(sizeof(sei_t));
-    memset(s, 0, sizeof(sei_t));
+	sceClibMemset(s, 0, sizeof(sei_t));
     s->payload = NULL;
     return s;
 }

@@ -32,6 +32,7 @@
  * %End-Header%
  */
 
+#include <psp2/kernel/clib.h>
 #include <string.h>
 #include "uuidP.h"
 
@@ -64,6 +65,6 @@ void uuid_pack(const struct uuid *uu, uuid_t ptr)
 	tmp >>= 8;
 	out[8] = (unsigned char) tmp;
 
-	memcpy(out+10, uu->node, 6);
+	sceClibMemcpy(out+10, uu->node, 6);
 }
 

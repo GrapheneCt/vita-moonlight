@@ -32,6 +32,8 @@
  * %End-Header%
  */
 
+#include <psp2/kernel/clib.h>
+
 #include <stdio.h>
 
 #include "uuidP.h"

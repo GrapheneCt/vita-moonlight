@@ -226,7 +226,7 @@ static inline void bs_write_u1(bs_t* b, uint32_t v)
     if (! bs_eof(b))
     {
         // FIXME this is slow, but we must clear bit first
-        // is it better to memset(0) the whole buffer during bs_init() instead?
+        // is it better to sceClibMemset(0) the whole buffer during bs_init() instead?
         // if we don't do either, we introduce pretty nasty bugs
         (*(b->p)) &= ~(0x01 << b->bits_left);
         (*(b->p)) |= ((v & 0x01) << b->bits_left);
@@ -333,7 +333,7 @@ static inline int bs_read_bytes(bs_t* b, uint8_t* buf, int len)
     int actual_len = len;
     if (b->end - b->p < actual_len) { actual_len = b->end - b->p; }
     if (actual_len < 0) { actual_len = 0; }
-    memcpy(buf, b->p, actual_len);
+    sceClibMemcpy(buf, b->p, actual_len);
     if (len < 0) { len = 0; }
     b->p += len;
     return actual_len;
@@ -344,7 +344,7 @@ static inline int bs_write_bytes(bs_t* b, uint8_t* buf, int len)
     int actual_len = len;
     if (b->end - b->p < actual_len) { actual_len = b->end - b->p; }
     if (actual_len < 0) { actual_len = 0; }
-    memcpy(b->p, buf, actual_len);
+    sceClibMemcpy(b->p, buf, actual_len);
     if (len < 0) { len = 0; }
     b->p += len;
     return actual_len;

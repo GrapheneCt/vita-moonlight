@@ -166,7 +166,7 @@ ILCLIENT_T *ilclient_init()
    vcos_log_set_level(VCOS_LOG_CATEGORY, VCOS_LOG_WARN);
    vcos_log_register("ilclient", VCOS_LOG_CATEGORY);
 
-   memset(st, 0, sizeof(ILCLIENT_T));
+   sceClibMemset(st, 0, sizeof(ILCLIENT_T));
 
    i = vcos_semaphore_create(&st->event_sema, "il:event", 1);
    vc_assert(i == VCOS_SUCCESS);
@@ -304,7 +304,7 @@ int ilclient_create_component(ILCLIENT_T *client, COMPONENT_T **comp, char *name
    if(!*comp)
       return -1;
 
-   memset(*comp, 0, sizeof(COMPONENT_T));
+   sceClibMemset(*comp, 0, sizeof(COMPONENT_T));
 
 #define COMP_PREFIX "OMX.broadcom."
 
@@ -314,9 +314,9 @@ int ilclient_create_component(ILCLIENT_T *client, COMPONENT_T **comp, char *name
    vc_assert(status == VCOS_SUCCESS);
    (*comp)->client = client;
 
-   vcos_snprintf((*comp)->name, sizeof((*comp)->name), "cl:%s", name);
-   vcos_snprintf((*comp)->bufname, sizeof((*comp)->bufname), "cl:%s buffer", name);
-   vcos_snprintf(component_name, sizeof(component_name), "%s%s", COMP_PREFIX, name);
+   vcos_sceClibSnprintf((*comp)->name, sizeof((*comp)->name), "cl:%s", name);
+   vcos_sceClibSnprintf((*comp)->bufname, sizeof((*comp)->bufname), "cl:%s buffer", name);
+   vcos_sceClibSnprintf(component_name, sizeof(component_name), "%s%s", COMP_PREFIX, name);
 
    (*comp)->flags = flags;
 
@@ -336,9 +336,9 @@ int ilclient_create_component(ILCLIENT_T *client, COMPONENT_T **comp, char *name
       {
          char *p = (char *) uid + strlen(COMP_PREFIX);
 
-         vcos_snprintf((*comp)->name, sizeof((*comp)->name), "cl:%s", p);
+         vcos_sceClibSnprintf((*comp)->name, sizeof((*comp)->name), "cl:%s", p);
          (*comp)->name[sizeof((*comp)->name)-1] = 0;
-         vcos_snprintf((*comp)->bufname, sizeof((*comp)->bufname), "cl:%s buffer", p);
+         vcos_sceClibSnprintf((*comp)->bufname, sizeof((*comp)->bufname), "cl:%s buffer", p);
          (*comp)->bufname[sizeof((*comp)->bufname)-1] = 0;
       }
 
@@ -806,7 +806,7 @@ int ilclient_enable_port_buffers(COMPONENT_T *comp, int portIndex,
    OMX_STATETYPE state;
    int i;
 
-   memset(&portdef, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+   sceClibMemset(&portdef, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
    portdef.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);
    portdef.nVersion.nVersion = OMX_VERSION;
    portdef.nPortIndex = portIndex;
@@ -903,7 +903,7 @@ void ilclient_disable_port_buffers(COMPONENT_T *comp, int portIndex,
    int num;
 
    // get the buffers off the relevant queue
-   memset(&portdef, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+   sceClibMemset(&portdef, 0, sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
    portdef.nSize = sizeof(OMX_PARAM_PORTDEFINITIONTYPE);
    portdef.nVersion.nVersion = OMX_VERSION;
    portdef.nPortIndex = portIndex;

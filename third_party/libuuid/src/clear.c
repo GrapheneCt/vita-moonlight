@@ -32,12 +32,12 @@
  * %End-Header%
  */
 
-#include "string.h"
+#include <psp2/kernel/clib.h>
 
 #include "uuidP.h"
 
 void uuid_clear(uuid_t uu)
 {
-	memset(uu, 0, 16);
+	sceClibMemset(uu, 0, 16);
 }
 
