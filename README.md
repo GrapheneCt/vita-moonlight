@@ -3,6 +3,7 @@
 This is a vita port of Moonlight Embedded with support for 1280x720 and 1920x1080 resolutions.
 
 Original port here: https://github.com/xyzz/vita-moonlight
+
 Moonlight is an open source implementation of NVIDIA GameStream.
 
 ## Documentation
