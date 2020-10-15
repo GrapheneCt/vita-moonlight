@@ -241,18 +241,22 @@ inline uint32_t is_pressed(uint32_t defined) {
 			if (back_touch_state.nw > 0) {
 				return 1;
 			}
+			break;
 		case TOUCHSEC_BACK_NORTHEAST:
 			if (back_touch_state.ne > 0) {
 				return 1;
 			}
+			break;
 		case TOUCHSEC_BACK_SOUTHWEST:
 			if (back_touch_state.sw > 0) {
 				return 1;
 			}
+			break;
 		case TOUCHSEC_BACK_SOUTHEAST:
 			if (back_touch_state.se > 0) {
 				return 1;
 			}
+			break;
 	  }
   }
   return 0;
@@ -368,8 +372,14 @@ static inline void vitainput_process(void) {
   curr.button |= is_pressed(map.btn_tr2)        ? RS_CLK_FLAG : 0; // r3
 
   // analogs
-  curr.lt = read_analog(map.btn_tl); // l2
-  curr.rt = read_analog(map.btn_tr); // r2
+  if (config.model == SCE_KERNEL_MODEL_VITATV) {
+	curr.lt = read_analog(map.btn_tl); // l2
+	curr.rt = read_analog(map.btn_tr); // r2
+  }
+  else {
+	curr.lt = is_pressed(map.btn_tl) ? 0xFF : 0;
+	curr.rt = is_pressed(map.btn_tr) ? 0xFF : 0;
+  }
   curr.lx = read_analog(map.abs_x);
   curr.ly = read_analog(map.abs_y);
   curr.rx = read_analog(map.abs_rx);

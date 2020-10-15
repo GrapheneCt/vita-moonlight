@@ -29,6 +29,7 @@
 #include "ini_file_processor_c.h"
 #include "input/vita.h"
 
+#include <psp2/vshbridge.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/sysmem.h>
 
@@ -56,7 +57,7 @@ bool config_file_parse(char* filename, PCONFIGURATION config) {
   int ret = sceIniFileProcessorOpenFile(iniProcContext, filename, "r", 0);
   if (ret < 0) {
 	sceIniFileProcessorDestroyInstanceForError(iniProcContext);
-	sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X", ret);
+	sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X, %s\n", ret, filename);
 	return 0;
   }
 
@@ -137,7 +138,7 @@ void config_save(const char* filename, PCONFIGURATION config) {
   int ret = sceIniFileProcessorCreateFile(iniProcContext, filename, "rw", 0);
   if (ret < 0) {
 	sceIniFileProcessorDestroyInstanceForError(iniProcContext);
-	sceClibPrintf("sceIniFileProcessorCreateFile() returned 0x%X", ret);
+	sceClibPrintf("sceIniFileProcessorCreateFile() returned 0x%X, %s\n", ret, filename);
 	return;
   }
 
@@ -206,6 +207,8 @@ void update_layout() {
 
 void config_parse(int argc, char* argv[], PCONFIGURATION config) {
   LiInitializeStreamConfiguration(&config->stream);
+
+  config->model = vshSblAimgrIsGenuineDolce();
 
   config->stream.width = 1280;
   config->stream.height = 720;

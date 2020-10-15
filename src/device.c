@@ -138,7 +138,7 @@ bool load_device_info(device_info_t *info) {
   int ret = sceIniFileProcessorOpenFile(iniProcContext, path, "r", 0);
   if (ret < 0) {
 	  sceIniFileProcessorDestroyInstanceForError(iniProcContext);
-	  sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X", ret);
+	  sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X, %s\n", ret, path);
 	  return false;
   }
 

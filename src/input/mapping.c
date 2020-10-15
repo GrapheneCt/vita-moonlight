@@ -36,7 +36,7 @@ void mapping_load(char* fileName, struct mapping* map) {
   int ret = sceIniFileProcessorOpenFile(iniProcContext, fileName, "r", 0);
   if (ret < 0) {
 	sceIniFileProcessorDestroyInstanceForError(iniProcContext);
-	sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X", ret);
+	sceClibPrintf("sceIniFileProcessorOpenFile() returned 0x%X, %s\n", ret, fileName);
 	return;
   }
 
@@ -122,7 +122,7 @@ void mapping_save(char* fileName, struct mapping* map) {
   int ret = sceIniFileProcessorCreateFile(iniProcContext, fileName, "rw", 0);
   if (ret < 0) {
 	 sceIniFileProcessorDestroyInstanceForError(iniProcContext);
-	 sceClibPrintf("sceIniFileProcessorCreateFile() returned 0x%X", ret);
+	 sceClibPrintf("sceIniFileProcessorCreateFile() returned 0x%X, %s\n", ret, fileName);
 	 return;
   }
 
