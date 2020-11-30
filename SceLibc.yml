@@ -1,0 +1,52 @@
+version: 2
+firmware: 3.60
+modules:
+  SceLibc:
+    nid: 0x43FBA801
+    libraries:
+      SceLibc:
+        kernel: false
+        nid: 0xBE43BB07
+        functions:
+          sceLibcMallocStats: 0x57A729DB
+          sceLibcMalloc: 0x775A0CB2
+          sceLibcFree: 0x5B9BB802
+          sceLibcCalloc: 0xE7EC3D0B
+          sceLibcRealloc: 0x006B54BA
+          sceLibcReallocalign: 0x608AC135
+          sceLibcMemalign: 0xA9363E6B
+          sceLibcFclose: 0xEC97321C
+          sceLibcFdopen: 0xB2F318FE
+          sceLibcFeof: 0xBF96AD71
+          sceLibcFerror: 0xB724BFC1
+          sceLibcFflush: 0x5AAD2996
+          sceLibcFgetc: 0x672C58E0
+          sceLibcFgetpos: 0x3CDA3118
+          sceLibcFgets: 0xBA14322F
+          sceLibcFgetwc: 0x89541CA5
+          sceLibcFgetws: 0x982AFA4D
+          sceLibcFileno: 0xFEC1502E
+          sceLibcFopen: 0xFFFBE239
+          sceLibcFopen_s: 0x1483DF76
+          sceLibcFprintf: 0xE0C79764
+          sceLibcFprintf_s: 0xE91E72D0
+          sceLibcFputc: 0x7E6A6108
+          sceLibcFputs: 0xC8FF13E5
+          sceLibcFputwc: 0xA597CDC8
+          sceLibcFputws: 0xB755927C
+          sceLibcFread: 0xB31C73A9
+          sceLibcFreopen: 0x715C4395
+          sceLibcFreopen_s: 0x438765C6
+          sceLibcFscanf: 0x505601C6
+          sceLibcFscanf_s: 0xB2B03159
+          sceLibcFseek: 0xC3A7CDE1
+          sceLibcFsetpos: 0xDC1BDBD7
+          sceLibcFtell: 0x41C2AF95
+          sceLibcFwide: 0xA77327D2
+          sceLibcFwprintf: 0xE52278E8
+          sceLibcFwprintf_s: 0xD920CD41
+          sceLibcFwrite: 0x8BCDCC4E
+          sceLibcFwscanf: 0x7BFC75C6
+          sceLibcFwscanf_s: 0x1E5C4E3D
+          sceLibcFgetc: 0x672C58E0
+          sceLibcUngetc: 0x2BCB3F01

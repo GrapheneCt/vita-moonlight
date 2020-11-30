@@ -28,6 +28,8 @@
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/appmgr.h>
 
+int sceAppMgrAcquireBgmPortForMusicPlayer(void);
+
 enum {
   VITA_AUDIO_INIT_OK        = 0,
   VITA_AUDIO_ERROR_BAD_OPUS = 0x80020001,
@@ -51,8 +53,7 @@ static void vita_renderer_cleanup() {
     opus_multistream_decoder_destroy(decoder);
     decoder = NULL;
   }
-  if (config.enable_bgm_mode)
-	sceAppMgrReleaseBgmPort();
+  sceAppMgrReleaseBgmPort();
   sceAudioOutOutput(port, NULL);
   sceAudioOutReleasePort(port);
 }
@@ -70,12 +71,7 @@ static int vita_renderer_init(int audioConfiguration, POPUS_MULTISTREAM_CONFIGUR
       return VITA_AUDIO_ERROR_BAD_OPUS;
   }
   
-  if (config.enable_bgm_mode) {
-	sceAppMgrAcquireBgmPort();
-	port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
-  }
-  else
-	port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_MAIN, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
+  port = sceAudioOutOpenPort(SCE_AUDIO_OUT_PORT_TYPE_BGM, VITA_SAMPLES, 48000, SCE_AUDIO_OUT_PARAM_FORMAT_S16_STEREO);
 
   if (port < 0) {
       vita_renderer_cleanup();
@@ -99,14 +95,8 @@ static void vita_renderer_decode_and_play_sample(char* data, int length) {
 
     if (decode_offset == VITA_SAMPLES) {
       decode_offset = 0;
-	  if (!config.enable_bgm_mode) {
-		if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG | FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL))
-	      sceAudioOutOutput(port, buffer);
-	  }
-	  else {
-		if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL))
-		  sceAudioOutOutput(port, buffer);
-	  }
+	  if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL))
+	    sceAudioOutOutput(port, buffer);
     }
   } else {
     vita_debug_log("Opus error from decode: %d\n", decodeLen);
@@ -122,9 +112,11 @@ AUDIO_RENDERER_CALLBACKS audio_callbacks_vita = {
 
 
 void vitaaudio_start() {
+  sceAppMgrAcquireBgmPortForMusicPlayer();
   sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD);
 }
 
 void vitaaudio_stop() {
+  sceAppMgrReleaseBgmPort();
   sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_ACTIVE_AUDIO_THREAD);
 }

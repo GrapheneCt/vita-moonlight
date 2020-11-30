@@ -1,0 +1,24 @@
+version: 0x2
+firmware: 3.60
+modules:
+  ScePsp2Compat:
+    nid: 0x1839D11E
+    libraries:
+      ScePsp2Compat:
+        nid: 0x81405F79
+        kernel: false
+        functions:
+          curl_easy_init: 0xAFCFB0DA
+          curl_easy_setopt: 0x30E7FB1B
+          curl_easy_perform: 0xDA3F145E
+          curl_easy_cleanup: 0xE58ABD18
+          curl_easy_strerror: 0xE086D703
+          curl_share_setopt: 0x8A84050C
+          curl_share_init: 0x79197AA2
+          curl_global_init: 0x92A0768D
+          curl_global_init_mem: 0x79151BD4
+          curl_global_cleanup: 0x84E081DF
+          curl_share_cleanup: 0x26AA8E8B
+          curl_easy_recv: 0xE63B3A56
+          curl_easy_send: 0x41837495
+          curl_easy_reset: 0xDA1C173A

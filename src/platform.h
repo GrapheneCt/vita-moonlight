@@ -42,3 +42,11 @@ PAUDIO_RENDERER_CALLBACKS platform_get_audio(enum platform system);
 bool platform_supports_hevc(enum platform system);
 
 extern DECODER_RENDERER_CALLBACKS decoder_callbacks_vita;
+
+// Fore allocations override
+
+void *sceLibcMalloc(size_t size);
+void sceLibcFree(void *ptr);
+void *sceLibcCalloc(size_t nitems, size_t size);
+void *sceLibcRealloc(void *ptr, size_t size);
+void *sceLibcMemalign(size_t blocksize, size_t bytes);

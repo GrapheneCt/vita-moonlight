@@ -236,7 +236,6 @@ int ui_connect(char *name, char *address) {
 
     char key_dir[4096];
     sprintf(key_dir, "%s/%s", config.key_dir, name);
-
     ret = gs_init(&server, address, key_dir, 0, true);
     if (ret == GS_OUT_OF_MEMORY) {
 			display_error("Not enough memory");
@@ -259,6 +258,7 @@ int ui_connect(char *name, char *address) {
 
     connection_reset();
   }
+
   return 1;
 }
 
@@ -458,7 +458,7 @@ bool check_connection(const char *name, char *addr) {
   if (connection_is_ready()) {
     return false;
   }
-
+  sceClibPrintf("step1\n");
   flash_message("Check connecting to:\n %s...", addr);
 
   char key_dir[4096];
@@ -467,8 +467,9 @@ bool check_connection(const char *name, char *addr) {
   if (gs_init(&server, addr, key_dir, 0, true) != GS_OK) {
     return false;
   }
-
+  sceClibPrintf("step2\n");
   connection_terminate();
+  sceClibPrintf("step3\n");
   return true;
 }
 

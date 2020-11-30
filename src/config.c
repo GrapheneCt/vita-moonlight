@@ -99,8 +99,6 @@ bool config_file_parse(char* filename, PCONFIGURATION config) {
 	config->localaudio = int_value;
   if (!iniGetValueByKey(iniProcContext, "enable_frame_pacer", INI_VALUE_BOOL, 0, &int_value))
 	config->enable_frame_pacer = int_value;
-  if (!iniGetValueByKey(iniProcContext, "enable_bgm_mode", INI_VALUE_BOOL, 0, &int_value))
-	  config->enable_bgm_mode = int_value;
   if (!iniGetValueByKey(iniProcContext, "center_region_only", INI_VALUE_BOOL, 0, &int_value))
 	config->center_region_only = int_value;
   if (!iniGetValueByKey(iniProcContext, "disable_powersave", INI_VALUE_BOOL, 0, &int_value))
@@ -167,7 +165,6 @@ void config_save(const char* filename, PCONFIGURATION config) {
 	sceIniFileProcessorAddKey(iniProcContext, "app", config->app);
 
   iniCreateSetKey(iniProcContext, "enable_frame_pacer", INI_VALUE_BOOL, config->enable_frame_pacer);
-  iniCreateSetKey(iniProcContext, "enable_bgm_mode", INI_VALUE_BOOL, config->enable_bgm_mode);
   iniCreateSetKey(iniProcContext, "center_region_only", INI_VALUE_BOOL, config->center_region_only);
   iniCreateSetKey(iniProcContext, "disable_powersave", INI_VALUE_BOOL, config->disable_powersave);
   iniCreateSetKey(iniProcContext, "disable_dimming", INI_VALUE_BOOL, config->disable_dimming);
@@ -210,8 +207,8 @@ void config_parse(int argc, char* argv[], PCONFIGURATION config) {
 
   config->model = vshSblAimgrIsGenuineDolce();
 
-  config->stream.width = 1280;
-  config->stream.height = 720;
+  config->stream.width = 960;
+  config->stream.height = 544;
   config->stream.fps = 60;
   config->stream.bitrate = -1;
   config->stream.packetSize = 1024;
@@ -235,7 +232,6 @@ void config_parse(int argc, char* argv[], PCONFIGURATION config) {
   config->jp_layout = false;
   config->show_fps = false;
   config->enable_frame_pacer = true;
-  config->enable_bgm_mode = true;
   config->center_region_only = false;
 
   config->special_keys.nw = INPUT_SPECIAL_KEY_PAUSE | INPUT_TYPE_SPECIAL;

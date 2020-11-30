@@ -14,6 +14,14 @@ include("${DOLCESDK}/share/dolce.cmake" REQUIRED)
 dolce_gen_libs(SceIniFileProcessor_stubs
   SceIniFileProcessor.yml
   LIB SceIniFileProcessor_stub_weak)
+  
+dolce_gen_libs(ScePsp2Compat_stubs
+  ScePsp2Compat.yml
+  LIB ScePsp2Compat_stub_weak)
+  
+dolce_gen_libs(SceLibc_stubs
+  SceLibc.yml
+  LIB SceLibc_stub_weak)
 
 set(VITA_APP_NAME "Moonlight")
 set(VITA_TITLEID  "GRVA00010")
@@ -22,6 +30,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -O3 -std=c99")
 
 link_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/third_party/mdns
+	${CMAKE_SOURCE_DIR}/third_party/h264bitstream
+	${CMAKE_SOURCE_DIR}/third_party/libuuid
+	${CMAKE_SOURCE_DIR}/third_party/expat
 	)
 
 include_directories(
@@ -50,6 +62,7 @@ add_executable(${PROJECT_NAME}
 	src/audio/vita.c
 	src/video/vita.c
 	src/input/vita.c
+	src/input/keyboard.c
 	src/power/vita.c
 	src/font.c
 	src/gui/guilib.c
@@ -65,21 +78,6 @@ add_executable(${PROJECT_NAME}
 	libgamestream/mkcert.c
 	libgamestream/sps.c
 	libgamestream/xml.c
-	
-	third_party/libuuid/src/clear.c
-	third_party/libuuid/src/compare.c
-	third_party/libuuid/src/copy.c
-	third_party/libuuid/src/gen_uuid.c
-	third_party/libuuid/src/isnull.c
-	third_party/libuuid/src/pack.c
-	third_party/libuuid/src/parse.c
-	third_party/libuuid/src/unpack.c
-	third_party/libuuid/src/unparse.c
-	third_party/libuuid/src/uuid_time.c
-
-	third_party/h264bitstream/h264_nal.c
-	third_party/h264bitstream/h264_sei.c
-	third_party/h264bitstream/h264_stream.c
 
 	third_party/moonlight-common-c/src/AudioStream.c
 	third_party/moonlight-common-c/src/ByteBuffer.c
@@ -112,12 +110,8 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-	expat
-	curl
-	ssl
 	crypto
 	opus
-	z
 
 	SceDisplay_stub
 	SceDisplayUser_stub
@@ -130,13 +124,11 @@ target_link_libraries(${PROJECT_NAME}
 	SceVideodecUser_stub
 	SceVideodecLowDelayUser_stub
 	SceVideodecAsyncUser_stub
-	SceCommonDialog_stub
 	SceSysmodule_stub
 	SceAppMgr_stub
 	SceAudio_stub
 	SceIme_stub
 
-	vita2d_sys
 	SceGxm_stub
 	ScePgf_stub
 	ScePvf_stub
@@ -147,17 +139,28 @@ target_link_libraries(${PROJECT_NAME}
 	SceSharedFb_stub
 	SceKernelDmacMgr_stub
 	SceCodecengine_stub
-	SceIniFileProcessor_stub_weak
 	SceAppMgr_stub
 	SceIme_stub
 	SceSystemgesture_stub
+	SceVshBridge_stub
+	SceHid_stub
+	SceIniFileProcessor_stub_weak
+	ScePsp2Compat_stub_weak
+	SceLibc_stub_weak
 	taihen_stub
+	vita2d_sys_stub
+	mdns_stub
+	uuid_stub
+	h264bitstream_stub
+	libexpat_stub
 )
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin
   COMMAND dolce-make-bootparam attribute 0x02 ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin
 )
+
+set (DOLCE_ELF_CREATE_FLAGS "${DOLCE_ELF_CREATE_FLAGS} -h 33554432")
 
 dolce_create_self(eboot.bin ${PROJECT_NAME} UNSAFE BOOT_PARAM ${CMAKE_CURRENT_BINARY_DIR}/boot_param.bin)
 
@@ -187,4 +190,9 @@ dolce_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} eboot.bin
 	FILE sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
 	FILE assets/nerdfont.ttf assets/nerdfont.ttf
 	FILE ${CMAKE_CURRENT_BINARY_DIR}/exit_module.skprx module/kernel/exit_module.skprx
+	FILE third_party/mdns/mdns.suprx module/user/mdns.suprx
+	FILE third_party/libuuid/uuid.suprx module/user/uuid.suprx
+	FILE third_party/h264bitstream/h264bitstream.suprx module/user/h264bitstream.suprx
+	FILE third_party/vita2d_sys/vita2d_sys.suprx module/user/vita2d_sys.suprx
+	FILE third_party/expat/libexpat.suprx module/user/libexpat.suprx
     )

@@ -48,8 +48,8 @@ typedef struct
 #endif
 
 
-static bs_t* bs_new(uint8_t* buf, size_t size);
-static void bs_free(bs_t* b);
+bs_t* bs_new(uint8_t* buf, size_t size);
+void bs_free(bs_t* b);
 static bs_t* bs_clone( bs_t* dest, const bs_t* src );
 static bs_t*  bs_init(bs_t* b, uint8_t* buf, size_t size);
 static uint32_t bs_byte_aligned(bs_t* b);
@@ -85,18 +85,6 @@ static inline bs_t* bs_init(bs_t* b, uint8_t* buf, size_t size)
     b->end = buf + size;
     b->bits_left = 8;
     return b;
-}
-
-static inline bs_t* bs_new(uint8_t* buf, size_t size)
-{
-    bs_t* b = (bs_t*)malloc(sizeof(bs_t));
-    bs_init(b, buf, size);
-    return b;
-}
-
-static inline void bs_free(bs_t* b)
-{
-    free(b);
 }
 
 static inline bs_t* bs_clone(bs_t* dest, const bs_t* src)

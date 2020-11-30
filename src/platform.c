@@ -67,3 +67,25 @@ uid_t getgid(void) {
 uid_t getegid(void) {
   return 1;
 }
+
+// Allocations override
+
+void *malloc(size_t size) {
+  return sceLibcMalloc(size);
+}
+
+void *calloc(size_t nitems, size_t size) {
+  return sceLibcCalloc(nitems, size);
+}
+
+void *realloc(void *ptr, size_t size) {
+  return sceLibcRealloc(ptr, size);
+}
+
+void *memalign(size_t blocksize, size_t bytes) {
+	return sceLibcMemalign(blocksize, bytes);
+}
+
+void free(void *ptr) {
+  sceLibcFree(ptr);
+}

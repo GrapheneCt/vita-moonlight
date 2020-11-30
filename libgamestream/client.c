@@ -97,6 +97,7 @@ static int load_unique_id(const char* keyDirectory) {
   if (fd < 0) {
     unsigned char unique_data[UNIQUEID_BYTES];
     RAND_bytes(unique_data, UNIQUEID_BYTES);
+
     for (int i = 0; i < UNIQUEID_BYTES; i++) {
       sprintf(unique_id + (i * 2), "%02x", unique_data[i]);
     }
@@ -108,6 +109,7 @@ static int load_unique_id(const char* keyDirectory) {
   } else {
 	sceIoRead(fd, unique_id, UNIQUEID_CHARS);
   }
+
   sceIoClose(fd);
   unique_id[UNIQUEID_CHARS] = 0;
 
@@ -185,7 +187,6 @@ static int load_server_status(PSERVER_DATA server) {
     char *currentGameText = NULL;
     char *stateText = NULL;
     char *serverCodecModeSupportText = NULL;
-	sceClibPrintf("step1\n");
     ret = GS_INVALID;
 
     uuid_generate_random(uuid);
@@ -769,9 +770,9 @@ int gs_init(PSERVER_DATA server, char *address, const char *keyDirectory, int lo
     return GS_FAILED;
 
   http_init(keyDirectory, log_level);
-
   LiInitializeServerInformation(&server->serverInfo);
   server->serverInfo.address = address;
   server->unsupported = unsupported;
+
   return load_server_status(server);
 }

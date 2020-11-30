@@ -33,6 +33,7 @@
 #include "../platform.h"
 #include "vita.h"
 #include "mapping.h"
+#include "keyboard.h"
 
 #include <Limelight.h>
 
@@ -47,6 +48,7 @@
 #include <psp2/ime.h>
 #include <psp2/systemgesture.h>
 #include <psp2/rtc.h>
+#include <psp2/hid.h>
 
 #define WIDTH 960
 #define HEIGHT 544
@@ -94,6 +96,10 @@ static char libime_out[SCE_IME_MAX_PREEDIT_LENGTH * 2 + 8];
 static char libime_out_old[SCE_IME_MAX_PREEDIT_LENGTH * 2 + 8];
 static int caret_index_old = 0;
 static SceImeCaret caret_rev;
+
+static SceUID keyboard_handle;
+static SceUInt8 active_key[4];
+static bool hid_initialized = false;
 
 double mouse_multiplier;
 
@@ -150,6 +156,7 @@ static void mouse_move(unsigned int reportNum) {
 		scroll_rec = false;
 }
 
+SceHidKeyboardReport kb_old, kb;
 SceCtrlData pad, pad_old;
 SceTouchData front, back;
 
@@ -349,6 +356,23 @@ static inline void vitainput_process(void) {
   sceTouchPeek(SCE_TOUCH_PORT_FRONT, &front, 1);
   sceTouchPeek(SCE_TOUCH_PORT_BACK, &back, 1);
 
+  if (hid_initialized) {
+	int reportNum = sceHidKeyboardRead(keyboard_handle, &kb, 1);
+	if (reportNum > 0) {
+	  if ((int)kb.keycodes[0] != (int)kb_old.keycodes[0]) {
+		for (int i = 0; i++; i < 4) {
+		  if ((kb.keycodes[i] != kb_old.keycodes[i]) && kb.keycodes[i] != 0) {
+			LiSendKeyboardEvent(kbNames[kb.keycodes[i]], KEY_ACTION_DOWN, 0);
+			active_key[i] = kb.keycodes[i];
+		  }
+		  else if (kb.keycodes[i] != kb_old.keycodes[i]) {
+			LiSendKeyboardEvent(kbNames[kb.keycodes[i]], KEY_ACTION_UP, 0);
+		  }
+		}
+	  }
+	}
+  }
+
   sceSystemGestureUpdatePrimitiveTouchRecognizer(&front, &back);
   for (int i = 0; i < TOUCH_RECOGNIZERS_NUM; i++)
 	  sceSystemGestureUpdateTouchRecognizer(&touch_recognizers[i]);
@@ -399,6 +423,8 @@ static inline void vitainput_process(void) {
     sceClibMemcpy(&pad_old, &pad, sizeof(SceCtrlData));
   }
 
+  sceClibMemcpy(&kb_old, &kb, sizeof(SceHidKeyboardReport));
+
   mouse_click(front.reportNum);
   mouse_move(front.reportNum);
   if (!scroll_rec)
@@ -445,12 +471,26 @@ void vitainput_init_touch() {
 	sceSystemGestureCreateTouchRecognizer(&touch_recognizers[TOUCHREC_BACK_SE], SCE_SYSTEM_GESTURE_TYPE_DRAG, SCE_TOUCH_PORT_BACK, &rect, NULL);
 }
 
+int vitainput_init_HID() {
+	int ret = sceHidKeyboardEnumerate(&keyboard_handle, 1);
+	if (ret < 0)
+		return ret;
+
+	vitainput_kb_init_names();
+
+	hid_initialized = true;
+	return ret;
+}
+
 bool vitainput_init() {
   sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
   sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
   sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_START);
 
   vitainput_init_touch();
+
+  if (config.model == SCE_KERNEL_MODEL_VITATV)
+	vitainput_init_HID();
 
   SceUID thid = sceKernelCreateThread("vitainput_thread", vitainput_thread, 70, 0x1000, 0, SCE_KERNEL_CPU_MASK_USER_2, NULL);
   if (thid >= 0) {

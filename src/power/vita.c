@@ -21,6 +21,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/power.h>
+#include <vita2d_sys.h>
 #include <taihen.h>
 #include "../config.h"
 #include "../platform.h"
@@ -51,36 +52,67 @@ extern SceUID state_evf;
 
 static int powermode = 0;
 
+static SceBool is_deactivated = SCE_FALSE;
+
+void vitapower_activate(void)
+{
+	vitavideo_flush_decoder();
+	sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG);
+}
+
+void vitapower_deactivate(void)
+{
+	sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_IS_FG);
+}
+
 void vitapower_termninate() {
 	SceUID modid = taiLoadStartKernelModule("ux0:app/GRVA00010/module/kernel/exit_module.skprx", 0, NULL, 0);
 	sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG);
-	int ret = sceAppMgrQuitForNonSuspendableApp();
+	sceAppMgrQuitForNonSuspendableApp();
 	taiStopUnloadKernelModule(modid, 0, NULL, 0, NULL, NULL);
-	sceClibPrintf("Moonlight quit: 0x%X\n", ret);
+}
+
+int vitapower_callback(int notifyId, int notifyCount, int powerInfo, void *common)
+{
+	if (powerInfo & 0x400000) {
+		if (!is_deactivated)
+			vitapower_deactivate();
+	}
+	else if (powerInfo & 0x800000) {
+		if (!is_deactivated)
+			vitapower_activate();
+	}
+
+	return 0;
 }
 
 int vitapower_thread(SceSize args, void *argp) {
 
   SceAppMgrEvent appEvent;
 
+  SceUID cbid = sceKernelCreateCallback("power_cb", 0, vitapower_callback, NULL);
+  scePowerRegisterCallback(cbid);
+
   while (1) {
+
 	  //Not sure if flushing is better on activation or deactivation
 	  _sceAppMgrReceiveEvent(&appEvent);
 	  switch (appEvent.event) {
 	  case SCE_APP_EVENT_ON_ACTIVATE:
-		  vitavideo_flush_decoder();
-		  sceKernelSetEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG);
+		  vitapower_activate();
+		  is_deactivated = SCE_FALSE;
 		  break;
 	  case SCE_APP_EVENT_ON_DEACTIVATE:
-		  sceKernelClearEventFlag(state_evf, ~FLAG_MOONLIGHT_IS_FG);
+		  vitapower_deactivate();
+		  is_deactivated = SCE_TRUE;
 		  break;
-	  case SCE_APP_EVENT_REQUEST_QUIT:;
+	  case SCE_APP_EVENT_REQUEST_QUIT:
 		  vitapower_termninate();
 		  break;
 	  }
 
     if (sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_ACTIVE_POWER_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL)) {
-      sceKernelDelayThread(10 * 1000);
+      sceKernelDelayThreadCB(10 * 1000);
       continue;
     }
     if (powermode & DISABLE_SUSPEND) {
@@ -90,7 +122,7 @@ int vitapower_thread(SceSize args, void *argp) {
 	  sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_OFF);
 	  sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_DIMMING);
 	}
-    sceKernelDelayThread(10 * 1000);
+    sceKernelDelayThreadCB(10 * 1000);
   }
 
   return 0;

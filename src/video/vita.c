@@ -478,8 +478,7 @@ cleanup:
   vita_cleanup();
   return ret;
 }
-static bool need_flush = false;
-static int pri;
+
 static int vita_submit_decode_unit(PDECODE_UNIT decodeUnit) {
 
 if (!sceKernelPollEventFlag(state_evf, FLAG_MOONLIGHT_IS_FG | FLAG_MOONLIGHT_ACTIVE_VIDEO_THREAD, SCE_KERNEL_EVF_WAITMODE_AND, NULL)) {

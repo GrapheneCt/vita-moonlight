@@ -47,8 +47,8 @@
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/libdbg.h>
 
-#include <psp2/net/net.h>
-#include <psp2/net/netctl.h>
+#include <psp2/net.h>
+#include <psp2/libnetctl.h>
 
 #include <psp2/kernel/iofilemgr.h>
 
@@ -60,6 +60,15 @@
 #include "device.h"
 #include "gui/ui.h"
 #include "power/vita.h"
+
+typedef struct SceKernelModuleLoadStartParam {
+	SceUInt32 flags;
+	int *status;
+	void *option;
+	int a4; // not used
+} SceKernelModuleLoadStartParam;
+
+SceUID _sceKernelLoadStartModule(const char *moduleFileName, SceSize args, const void *argp, const SceKernelModuleLoadStartParam *pParam);
 
 typedef struct SceSysmoduleOpt {
 	int flags;
@@ -80,7 +89,8 @@ extern int SCREEN_WIDTH;
 extern int SCREEN_HEIGHT;
 extern int LINE_SIZE;
 
-int _newlib_heap_size_user = 16 * 1024 * 1024;
+// We mostly use SceLibc heap
+int _newlib_heap_size_user = 1 * 1024 * 1024;
 SceUID state_evf = 0;
 
 static void vita_init() {
@@ -101,9 +111,18 @@ static void vita_init() {
   sceKernelChangeThreadPriority(SCE_KERNEL_THREAD_ID_SELF, 80);
 
   //Load stuff
-  sceKernelLoadStartModule("vs0:sys/external/libfios2.suprx", 0, NULL, 0, NULL, 0);
-  sceKernelLoadStartModule("vs0:sys/external/libc.suprx", 0, NULL, 0, NULL, 0);
+
+  SceKernelModuleLoadStartParam param = { 0 };
+
   sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
+  sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
+  //We use direct SceModulemgr function because normal one doesn't always work for ScePsp2Compat for some reason
+  _sceKernelLoadStartModule("vs0:data/external/webcore/ScePsp2Compat.suprx", 0, NULL, &param);
+  sceKernelLoadStartModule("app0:module/user/mdns.suprx", 0, NULL, 0, NULL, 0);
+  sceKernelLoadStartModule("app0:module/user/h264bitstream.suprx", 0, NULL, 0, NULL, 0);
+  sceKernelLoadStartModule("app0:module/user/uuid.suprx", 0, NULL, 0, NULL, 0);
+  sceKernelLoadStartModule("app0:module/user/libexpat.suprx", 0, NULL, 0, NULL, 0);
+  sceKernelLoadStartModule("app0:module/user/vita2d_sys.suprx", 0, NULL, 0, NULL, 0);
 
   //PAF needed for SceIniFileProcessor
   SceSysmoduleOpt sysmodule_opt;
@@ -131,8 +150,6 @@ static void vita_init() {
   srand(time(NULL));
 
   sceClibPrintf("Vita Moonlight %d.%d.%d (%s)\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, COMPILE_OPTIONS);
-
-  ret = sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
 
   size_t net_mem_sz = 100 * 1024;
   SceNetInitParam net_param = {0};

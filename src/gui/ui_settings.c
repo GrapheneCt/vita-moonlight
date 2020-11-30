@@ -394,7 +394,6 @@ enum {
   SETTINGS_SHOW_FPS,
   SETTINGS_LOCAL_AUDIO,
   SETTINGS_ENABLE_FRAME_PACER,
-  SETTINGS_ENABLE_BGM_MODE,
   SETTINGS_CENTER_REGION_ONLY,
   SETTINGS_ENABLE_MAPPING,
   SETTINGS_BACK_DEADZONE,
@@ -416,7 +415,6 @@ enum {
   SETTINGS_VIEW_SHOW_FPS,
   SETTINGS_VIEW_LOCAL_AUDIO,
   SETTINGS_VIEW_ENABLE_FRAME_PACER,
-  SETTINGS_VIEW_ENABLE_BGM_MODE,
   SETTINGS_VIEW_CENTER_REGION_ONLY,
   SETTINGS_VIEW_ENABLE_MAPPING,
   SETTINGS_VIEW_BACK_DEADZONE,
@@ -577,13 +575,6 @@ static int settings_loop(int id, void *context, const input_data *input) {
       did_change = 1;
       config.enable_frame_pacer = !config.enable_frame_pacer;
       break;
-	case SETTINGS_ENABLE_BGM_MODE:
-		if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
-			break;
-		}
-		did_change = 1;
-		config.enable_bgm_mode = !config.enable_bgm_mode;
-		break;
     case SETTINGS_CENTER_REGION_ONLY:
       if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
         break;
@@ -683,9 +674,6 @@ static int settings_loop(int id, void *context, const input_data *input) {
   sprintf(current, "%s", config.enable_frame_pacer ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_ENABLE_FRAME_PACER, current);
 
-  sprintf(current, "%s", config.enable_bgm_mode ? "yes" : "no");
-  MENU_REPLACE(SETTINGS_VIEW_ENABLE_BGM_MODE, current);
-
   sprintf(current, "%s", config.center_region_only ? "yes" : "no");
   MENU_REPLACE(SETTINGS_VIEW_CENTER_REGION_ONLY, current);
 
@@ -746,7 +734,6 @@ int ui_settings_menu() {
 
   MENU_CATEGORY("System");
   MENU_ENTRY(SETTINGS_SAVE_DEBUG_LOG, SETTINGS_VIEW_SAVE_DEBUG_LOG, "Enable debug log", "");
-  MENU_ENTRY(SETTINGS_ENABLE_BGM_MODE, SETTINGS_VIEW_ENABLE_BGM_MODE, "Enable BGM mode", "");
   MENU_ENTRY(SETTINGS_DISABLE_POWERSAVE, SETTINGS_VIEW_DISABLE_POWERSAVE, "Disable system suspend", "");
   MENU_ENTRY(SETTINGS_DISABLE_DIMMING, SETTINGS_VIEW_DISABLE_DIMMING, "Disable screen dimming", "");
   MENU_ENTRY(SETTINGS_JP_LAYOUT, SETTINGS_VIEW_JP_LAYOUT, "Swap X & O for Moonlight", "");

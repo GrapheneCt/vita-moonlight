@@ -64,7 +64,6 @@ typedef struct _CONFIGURATION {
   bool jp_layout;
   bool show_fps;
   bool enable_frame_pacer;
-  bool enable_bgm_mode;
   bool center_region_only;
   bool save_debug_log;
   struct input_config inputs[MAX_INPUTS];
